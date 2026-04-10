@@ -1,0 +1,84 @@
+---
+description: Web 页面分层（入口 / 区域组件 / Hooks / 纯展示）；范例见 PageLayeringDemo
+alwaysApply: true
+---
+
+# 页面分层（AI 开发）
+
+以 **页面入口、区域组件、业务 Hooks、纯展示组件** 四块为准则；仓库内范例目录为 `apps/web/src/pages/PageLayeringDemo/`（路由 `/layering-demo`）。
+
+## 适用范围
+
+- 默认适用于 `apps/web` 的新增页面与较大改造。
+- 若用户明确要求单文件快速实现，可临时合并，并提醒后续可按本规则拆回。
+
+---
+
+## 主规则
+
+### 1. 页面入口（Page entry）
+
+- **位置**：`src/pages/<PageName>/index.tsx`（或 `src/pages/<PageName>.tsx`）。
+- **职责**：串联本页各区块；**跨组件的数据、通讯与联动**在此定义与编排（谁持有状态、谁接收 props、谁触发回调、路由与权限等）。
+- **做法**：调用 `hooks` 中的 **actions / 派生逻辑**，把数据与回调组合后传给子组件；避免在入口堆放大段纯展示 JSX，复杂展示下沉到 `components/`。
+
+### 2. 区域组件（Regional block）
+
+- **适用**：页面上一块相对独立的 UI 区域（如左侧目录树、右侧主工作区），与页面其它部分 **只有少量概念需要共享**（例如当前选中的笔记、文件夹，或统一的 `selection` 对象）。
+- **职责**：
+  - **对内**：该区域内的交互、局部 UI 状态、与该区域强绑定的逻辑，尽量内聚在本组件（或该区域下再拆的子组件）内。
+  - **对外**：通过 **props / 回调** 与入口约定「页面其它区块需要知道的最小信息」，避免把右侧或其它区域的业务摊进左侧。
+- **数据与 Hook**：区域组件 **可以** 调用本页 `hooks/` 下的业务 Hook（读列表、创建、改名等与 UI 布局无关的稳定操作），使「数据操作契约」仍集中在 hooks，而不是散落在多处重复实现。
+- **边界**：与页面其余部分耦合面尽量小、接口稳定（例如只向上报告 `onSelectionChange`）；**不要把**与另一区域强相关的编排逻辑长期堆在区域组件内——跨区联动归 **页面入口**。
+
+### 3. 业务 Hooks（`hooks/use*.ts`）
+
+- **职责**：与具体页面长什么样、有哪些组件无关的 **数据与操作**：订阅/读取、增删改、保存等；统一暴露 **state + actions**（或等价形态）。
+- **原则**：同一类操作不在多个文件各写一套；组件只决定 **何时调用**，hooks 决定 **如何持久化/如何更新状态**。
+
+### 4. 纯展示组件（Presentation-only）
+
+- **职责**：根据 props **展示数据**；通过 props **触发回调**；主要解决 **样式与结构**，缩短单文件长度。
+- **约束**：**不**直接访问 Dexie、HTTP、本地存储；**不**承载复杂跨模块编排（编排留在入口或区域组件内按职责划分）。
+- **典型**：面包屑、标题行、列表项外观、无业务状态的卡片等。
+
+---
+
+## 范例目录：`PageLayeringDemo`
+
+路由：`/layering-demo`（见 `App.tsx`；主导航「分层范例」）。
+
+| 路径 | 角色 |
+|------|------|
+| `PageLayeringDemo/index.tsx` | 页面入口：选中摘要、把列表区注册的 `removeSelected` 交给详情区 |
+| `PageLayeringDemo/components/DemoListPanel.tsx` | 区域组件：内部使用 `useDemoItems`；`onSelectionChange` / `onRegisterActions` 对外 |
+| `PageLayeringDemo/hooks/useDemoItems.ts` | 业务 Hook：内存列表示例，与布局无关 |
+| `PageLayeringDemo/components/DemoStatBar.tsx`、`DemoDetailView.tsx` | 纯展示 |
+
+---
+
+## 补充（实现细节）
+
+- **与 zustand 的类比**：业务 Hook 侧重 **页面域** 的「存状态 + 改状态 + 必要时订阅」；默认 **不做** 全局共享容器，除非产品明确要求。
+- **Hook 的副作用**：可包含必要副作用，但应 **单一业务域**，避免跨页面耦合。
+- **单文件页面改造**：以 **最小侵入** 为先：优先抽出高复用或高复杂度区块，避免一次性大拆。
+- **命名倾向（可选）**：纯展示可用 `*View`、`*Panel`、`*List`；Hook 可用 `use<PageName>State`、`use<PageName>Actions`。范例中的现有组件名可保留，新组件可按团队习惯选用。
+- **与旧称「三层」的对应**：历史上「展示组件 / Hook / 页面控制器」可理解为：纯展示 + 业务 Hook + 页面入口；**区域组件**是介于「大块可复用 UI」与入口之间、可内聚调用本页 Hook 的模块。
+
+---
+
+## 目录与命名建议
+
+- **页面入口**：`src/pages/<PageName>/index.tsx` 或 `src/pages/<PageName>.tsx`。
+- **区域与纯展示组件**：`src/pages/<PageName>/components/*` 或 `src/components/*`。
+- **Hooks**：`src/pages/<PageName>/hooks/use*.ts` 或 `src/hooks/use*.ts`。
+
+---
+
+## 评审检查清单
+
+- 跨组件状态与联动是否主要落在 **页面入口**，而不是散落在多个区域深处。
+- **区域组件** 与页面其它部分是否 **接口小、职责清晰**（例如仅共享选中态）；跨区复杂流程是否已上提到入口。
+- **Hooks** 是否集中了稳定的数据操作，避免在多个组件重复实现同一套写库/更新逻辑。
+- **纯展示组件** 是否仅通过 props 收数据、发事件，且不直连数据层、不承担复杂编排。
+- 是否避免「为少传 props 而引入隐式全局耦合」「入口里大段复杂 JSX 不拆」等反模式。

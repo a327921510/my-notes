@@ -1,0 +1,22 @@
+---
+description: 需求/文档两版本对比：供 AI 快速找出差异与改动点（对齐 version-manifest 与快照）
+alwaysApply: true
+---
+
+# 文档版本对比（AI 开发）
+
+## 需求与文档（始终遵守）
+
+- **归口 `docs/`**：任何需求新增或变更，**最终须整理汇总到 `docs/`**（至少 `PRD.md` 或 `开发文档.md`；涉及流程/结构时同步流程图、功能结构图等）。讨论或实现完成后，若文档未反映结论，应**补写或提醒补写**。
+- **版本升级**：梳理需求时检查：(1) 需求/PRD 是否**明确要求**发版或升级工程版本；若有，落实时同步 `package.json` 的 `version`、`docs/version-manifest.json` 与 `docs/versions/` 快照流程。(2) 若未写明版本，但存在**接口/数据格式/导出/兼容/对外行为**等实质变化，应**提示是否建议** semver 升版（PATCH/MINOR/MAJOR 按破坏性程度）。
+
+## 两版对比（当用户问及差异时）
+
+当用户问及「与上一版比改了什么」「需求差异」「本版改动点」或实现与 PRD 是否一致时，按顺序做：
+
+1. **读版本元数据**：打开 `docs/version-manifest.json`，记下 `currentVersion`、`previousVersion` 及 `documents` 里的 `path`。
+2. **有上一版快照时（优先）**：若 `previousVersion` 非空且存在目录 `docs/versions/<previousVersion>/`，对清单中每个文件用**旧路径** `docs/versions/<previousVersion>/<同名文件>` 与**现行路径** `docs/<path>` 做并排比对；**PRD.md 优先**，再按需比对 `开发文档.md`、流程图等。
+3. **无快照时**：若有 Git，建议用 `git diff <上一版 tag>..HEAD -- docs`（或对比含 `docs` 的提交范围）；无标签则提醒先按 `docs/versions/README.md` 在升版前落盘快照。
+4. **输出格式**：先给**摘要**（增删改主题），再列**可执行改动点**（接口/UI/数据模型/验收），避免只复述当前文档而忽略与旧版的差分。
+
+人类可读流程与快照约定见 `docs/开发文档.md` §0 与 `docs/versions/README.md`。

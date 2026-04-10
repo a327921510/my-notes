@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Notes - Wireframes</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --line: #d8dbe1;
+      --text: #1f2430;
+      --muted: #6b7280;
+      --tab-active: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      width: min(1280px, 96vw);
+      margin: 20px auto 40px;
+    }
+    .section-title {
+      margin: 4px 0 8px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .note {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0 0 16px;
+    }
+
+    /* 隐藏 radio，保留键盘可聚焦时可用 tabindex - 这里用 clip 隐藏 */
+    .wf-sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .wireframe-app {
+      position: relative;
+    }
+
+    /* 顶部标签栏 */
+    .wf-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: -2px;
+      position: relative;
+      z-index: 2;
+    }
+    .wf-tabs label {
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      background: #e8eaf0;
+      border: 2px solid var(--line);
+      border-bottom: none;
+      border-radius: 10px 10px 0 0;
+      cursor: pointer;
+      transition:
+        background 0.22s ease,
+        color 0.22s ease,
+        border-color 0.22s ease,
+        transform 0.22s ease,
+        box-shadow 0.22s ease;
+    }
+    .wf-tabs label:hover {
+      color: var(--text);
+      background: #f0f2f7;
+      transform: translateY(-1px);
+    }
+
+    #wf-main:checked ~ .wf-tabs label[for="wf-main"],
+    #wf-site:checked ~ .wf-tabs label[for="wf-site"],
+    #wf-upload:checked ~ .wf-tabs label[for="wf-upload"],
+    #wf-ext:checked ~ .wf-tabs label[for="wf-ext"] {
+      color: var(--text);
+      background: var(--card);
+      border-color: var(--line);
+      box-shadow: 0 0 0 1px var(--tab-active);
+      transform: translateY(0);
+    }
+
+    /* 面板容器与切换动画 */
+    .wf-panels {
+      position: relative;
+      min-height: 520px;
+      background: var(--card);
+      border: 2px solid var(--line);
+      border-radius: 0 10px 10px 10px;
+      overflow: hidden;
+    }
+    .wf-panel {
+      position: absolute;
+      inset: 0;
+      padding: 16px;
+      overflow: auto;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(16px);
+      transition:
+        opacity 0.3s ease,
+        transform 0.3s ease,
+        visibility 0.3s;
+      pointer-events: none;
+    }
+
+    #wf-main:checked ~ .wf-panels #panel-main,
+    #wf-site:checked ~ .wf-panels #panel-site,
+    #wf-upload:checked ~ .wf-panels #panel-upload,
+    #wf-ext:checked ~ .wf-panels #panel-ext {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0);
+      pointer-events: auto;
+      z-index: 1;
+    }
+
+    .frame {
+      background: var(--card);
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .row { display: flex; }
+    .topbar {
+      padding: 10px 12px;
+      border-bottom: 2px solid var(--line);
+      display: grid;
+      grid-template-columns: 180px 1fr 280px;
+      gap: 10px;
+      background: #fafafa;
+    }
+    .box {
+      border: 2px dashed #b9bec8;
+      padding: 10px;
+      min-height: 44px;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 13px;
+    }
+    .left-nav {
+      width: 250px;
+      border-right: 2px solid var(--line);
+      padding: 10px;
+      min-height: 420px;
+    }
+    .mid-list {
+      width: min(440px, 38vw);
+      border-right: 2px solid var(--line);
+      padding: 10px;
+      min-height: 420px;
+    }
+    .right-panel {
+      flex: 1;
+      padding: 10px;
+      min-height: 420px;
+    }
+    .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .stack { display: grid; gap: 8px; }
+    .small { font-size: 12px; color: var(--muted); }
+    .chip {
+      border: 1px solid #b6bcc8;
+      background: #f7f8fb;
+      border-radius: 999px;
+      padding: 3px 8px;
+      display: inline-block;
+      margin-right: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .table {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+    .table .tr {
+      display: grid;
+      grid-template-columns: 100px 1fr 100px 120px;
+      border-bottom: 1px solid var(--line);
+    }
+    .table .tr:last-child { border-bottom: 0; }
+    .table .tr > div { padding: 8px; }
+    .table .head { background: #f8f9fb; font-weight: 700; }
+    .dialog {
+      max-width: 780px;
+      margin: 0 auto;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .dialog-hd, .dialog-ft {
+      padding: 10px 12px;
+      background: #fafafa;
+      border-bottom: 2px solid var(--line);
+      font-weight: 700;
+    }
+    .dialog-ft {
+      border-bottom: 0;
+      border-top: 2px solid var(--line);
+      text-align: right;
+    }
+    .dialog-bd { padding: 12px; }
+    .btn {
+      border: 1px solid #9fa7b6;
+      background: #fff;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .row { flex-direction: column; }
+      .left-nav, .mid-list {
+        width: 100%;
+        border-right: 0;
+        border-bottom: 2px solid var(--line);
+        min-height: auto;
+      }
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .wf-panel,
+      .wf-tabs label {
+        transition: none;
+      }
+      .wf-tabs label:hover {
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="section-title">My Notes 线框图（HTML + CSS）</h1>
+    <p class="note">范围：Web 端完整功能；浏览器扩展仅网页短文本数据 CRUD（不展示笔记目录与内容）。点击下方标签切换画面，带淡入与轻微位移动画。</p>
+
+    <div class="wireframe-app">
+      <input class="wf-sr-only" type="radio" name="wf-screen" id="wf-main" checked />
+      <input class="wf-sr-only" type="radio" name="wf-screen" id="wf-site" />
+      <input class="wf-sr-only" type="radio" name="wf-screen" id="wf-upload" />
+      <input class="wf-sr-only" type="radio" name="wf-screen" id="wf-ext" />
+
+      <nav class="wf-tabs" aria-label="线框图切换">
+        <label for="wf-main">1 · Web 主框架</label>
+        <label for="wf-site">2 · 站点信息区</label>
+        <label for="wf-upload">3 · 上传中心</label>
+        <label for="wf-ext">4 · 浏览器扩展</label>
+      </nav>
+
+      <div class="wf-panels">
+        <section id="panel-main" class="wf-panel" aria-labelledby="wf-main">
+          <h2 class="section-title" style="margin-top:0">Web 主框架</h2>
+          <div class="frame">
+            <div class="topbar">
+              <div class="box">Logo / Workspace</div>
+              <div class="box">全局搜索（笔记区） / 站点搜索（站点信息区）</div>
+              <div class="box">上传中心 | 登录状态</div>
+            </div>
+            <div class="row">
+              <aside class="left-nav">
+                <div class="label">左侧导航</div>
+                <div class="box">笔记区</div>
+                <div class="box">站点信息区（特殊功能）</div>
+                <div class="box">Domain 列表<br />github.com<br />openai.com<br />notion.so</div>
+              </aside>
+              <main class="mid-list">
+                <div class="label">中间列表区</div>
+                <div class="box">列表工具栏：新建 / 筛选 / 搜索</div>
+                <div class="box">当选中「笔记区」：笔记列表</div>
+                <div class="box">当选中「站点信息区」：短文本条目列表</div>
+              </main>
+              <section class="right-panel">
+                <div class="label">右侧详情区</div>
+                <div class="box">笔记编辑器（标题、正文、图片）</div>
+                <div class="box">或：短文本编辑面板（类型、内容、来源 URL/Domain）</div>
+                <span class="chip">sync: local_only</span>
+                <span class="chip">sync: dirty</span>
+                <span class="chip">sync: failed</span>
+                <span class="chip">sync: synced</span>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-site" class="wf-panel" aria-labelledby="wf-site">
+          <h2 class="section-title" style="margin-top:0">站点信息区（特殊功能）</h2>
+          <div class="frame" style="padding: 12px;">
+            <p class="small">面包屑：站点信息区 / github.com</p>
+            <div class="table">
+              <div class="tr head">
+                <div>类型</div><div>内容</div><div>更新时间</div><div>操作</div>
+              </div>
+              <div class="tr">
+                <div>account</div><div>user_xxx</div><div>10:22</div><div>编辑 / 删除</div>
+              </div>
+              <div class="tr">
+                <div>password</div><div>******</div><div>10:30</div><div>编辑 / 删除</div>
+              </div>
+              <div class="tr">
+                <div>todo</div><div>补充接口字段</div><div>11:05</div><div>编辑 / 删除</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-upload" class="wf-panel" aria-labelledby="wf-upload">
+          <h2 class="section-title" style="margin-top:0">上传中心弹层</h2>
+          <div class="dialog">
+            <div class="dialog-hd">上传中心</div>
+            <div class="dialog-bd">
+              <div class="stack">
+                <div class="box">[ ] 上传当前内容</div>
+                <div class="box">[ ] 上传全部未同步（笔记 + 站点短文本）</div>
+                <div class="box">上传队列：note/snippet | uploading/synced/failed | 重试</div>
+              </div>
+            </div>
+            <div class="dialog-ft">
+              <span class="btn">关闭</span>
+              <span class="btn">开始上传</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-ext" class="wf-panel" aria-labelledby="wf-ext">
+          <h2 class="section-title" style="margin-top:0">浏览器扩展（仅短文本 CRUD）</h2>
+          <div class="frame" style="padding: 12px;">
+            <div class="box">
+              Extension Snippets<br />
+              当前站点：github.com
+            </div>
+            <div class="stack" style="margin-top: 8px;">
+              <div class="box">类型：account / password / id / todo / custom</div>
+              <div class="box">内容输入框</div>
+              <div class="box">按钮：保存 / 清空</div>
+              <div class="box">列表（当前 Domain）：查看 / 编辑 / 删除</div>
+            </div>
+            <p class="small">说明：扩展不展示笔记目录与笔记内容。</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

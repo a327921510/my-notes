@@ -1,0 +1,18 @@
+{
+  "name": "my-notes",
+  "version": "0.2.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @my-notes/web",
+    "dev:api": "npm run dev -w @my-notes/api",
+    "build": "npm run build -w @my-notes/shared -w @my-notes/web -w @my-notes/api -w @my-notes/extension",
+    "lint": "npm run lint -w @my-notes/web --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
