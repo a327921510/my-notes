@@ -41,6 +41,48 @@ export class NotesDB extends Dexie {
     },
     "id"
   >;
+  drive_folders!: EntityTable<
+    {
+      id: string;
+      name: string;
+      parentId: string | null;
+      path?: string;
+      createdAt: number;
+      updatedAt: number;
+      syncStatus: SyncStatus;
+      cloudId?: string;
+    },
+    "id"
+  >;
+  drive_files!: EntityTable<
+    {
+      id: string;
+      folderId: string;
+      name: string;
+      mimeType?: string;
+      sizeBytes: number;
+      checksum?: string;
+      localBlobRef?: string;
+      localPath?: string;
+      cloudUrl?: string;
+      cloudStorageId?: string;
+      createdAt: number;
+      updatedAt: number;
+      syncStatus: SyncStatus;
+      cloudId?: string;
+    },
+    "id"
+  >;
+  drive_file_tombstones!: EntityTable<
+    {
+      id: string;
+      clientFileId: string;
+      cloudId: string;
+      deletedAt: number;
+      syncStatus: "pending" | "failed";
+    },
+    "id"
+  >;
 
   constructor() {
     super("my_notes_v1");
@@ -74,6 +116,59 @@ export class NotesDB extends Dexie {
       blobs: "key",
       sites: "id, name, version, updatedAt, syncStatus",
       site_items: "id, siteId, updatedAt, syncStatus",
+    });
+    this.version(4).stores({
+      folders: "id, parentId, updatedAt, deletedAt",
+      notes: "id, folderId, updatedAt, syncStatus, deletedAt",
+      images: "id, noteId, sortOrder",
+      snippets: "id, sourceDomain, type, updatedAt, syncStatus",
+      site_spaces: "id, sourceDomain, updatedAt",
+      clips: "id, sourceDomain, createdAt",
+      blobs: "key",
+      sites: "id, name, version, updatedAt, syncStatus",
+      site_items: "id, siteId, updatedAt, syncStatus",
+      drive_folders: "id, parentId, name, updatedAt, syncStatus",
+      drive_files: "id, folderId, name, updatedAt, syncStatus",
+    });
+    this.version(5).stores({
+      folders: "id, parentId, updatedAt, deletedAt",
+      notes: "id, folderId, updatedAt, syncStatus, deletedAt",
+      images: "id, noteId, sortOrder",
+      snippets: "id, sourceDomain, type, updatedAt, syncStatus",
+      site_spaces: "id, sourceDomain, updatedAt",
+      clips: "id, sourceDomain, createdAt",
+      blobs: "key",
+      sites: "id, name, version, updatedAt, syncStatus",
+      site_items: "id, siteId, updatedAt, syncStatus",
+      drive_folders: "id, parentId, name, createdAt, updatedAt, syncStatus",
+      drive_files: "id, folderId, name, createdAt, updatedAt, syncStatus",
+    });
+    this.version(6).stores({
+      folders: "id, parentId, updatedAt, deletedAt",
+      notes: "id, folderId, updatedAt, syncStatus, deletedAt",
+      images: "id, noteId, sortOrder",
+      snippets: "id, sourceDomain, type, updatedAt, syncStatus",
+      site_spaces: "id, sourceDomain, updatedAt",
+      clips: "id, sourceDomain, createdAt",
+      blobs: "key",
+      sites: "id, name, version, updatedAt, syncStatus",
+      site_items: "id, siteId, updatedAt, syncStatus",
+      drive_folders: "id, parentId, name, createdAt, updatedAt, syncStatus",
+      drive_files: "id, folderId, name, createdAt, updatedAt, syncStatus, cloudStorageId",
+    });
+    this.version(7).stores({
+      folders: "id, parentId, updatedAt, deletedAt",
+      notes: "id, folderId, updatedAt, syncStatus, deletedAt",
+      images: "id, noteId, sortOrder",
+      snippets: "id, sourceDomain, type, updatedAt, syncStatus",
+      site_spaces: "id, sourceDomain, updatedAt",
+      clips: "id, sourceDomain, createdAt",
+      blobs: "key",
+      sites: "id, name, version, updatedAt, syncStatus",
+      site_items: "id, siteId, updatedAt, syncStatus",
+      drive_folders: "id, parentId, name, createdAt, updatedAt, syncStatus",
+      drive_files: "id, folderId, name, createdAt, updatedAt, syncStatus, cloudStorageId",
+      drive_file_tombstones: "id, clientFileId, cloudId, deletedAt, syncStatus",
     });
   }
 }

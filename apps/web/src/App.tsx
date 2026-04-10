@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "@/auth/AuthContext";
 import { Layout } from "@/components/Layout";
+import { CloudDrivePage } from "@/pages/CloudDrivePage/index";
 import { NotesPage } from "@/pages/NotesPage/index";
 import { PageLayeringDemo } from "@/pages/PageLayeringDemo/index";
 import { SitesPage } from "@/pages/SitesPage/index";
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="sites" element={<SitesPage />} />
           <Route path="synced" element={<SyncedFilesPage />} />
           <Route path="upload" element={<UploadPage />} />
+          <Route path="cloud-drive" element={<CloudDrivePage />} />
           <Route path="test" element={<Test />} />
           <Route path="layering-demo" element={<PageLayeringDemo />} />
         </Route>

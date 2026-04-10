@@ -51,6 +51,29 @@ interface StoredSiteItem {
   updatedAt: number;
 }
 
+interface StoredDriveFolder {
+  userId: string;
+  clientFolderId: string;
+  cloudId: string;
+  name: string;
+  parentId: string | null;
+  path?: string;
+  updatedAt: number;
+}
+
+interface StoredDriveFile {
+  userId: string;
+  clientFileId: string;
+  clientFolderId: string;
+  cloudId: string;
+  name: string;
+  mimeType?: string;
+  sizeBytes: number;
+  checksum?: string;
+  storageId: string;
+  updatedAt: number;
+}
+
 async function saveUserFile(userId: string, buffer: Buffer, ext: string): Promise<string> {
   const name = `${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
   const dest = path.join(UPLOAD_ROOT, name);
@@ -70,6 +93,12 @@ async function removeNoteFiles(note: StoredNote | undefined): Promise<void> {
   }
 }
 
+async function removeStoredFile(storageId: string): Promise<void> {
+  const p = path.join(UPLOAD_ROOT, storageId);
+  await unlink(p).catch(() => {});
+  fileOwners.delete(storageId);
+}
+
 async function main() {
   await mkdir(UPLOAD_ROOT, { recursive: true });
 
@@ -82,6 +111,8 @@ async function main() {
   const notes = new Map<string, StoredNote>();
   const sites = new Map<string, StoredSite>();
   const siteItems = new Map<string, StoredSiteItem>();
+  const driveFolders = new Map<string, StoredDriveFolder>();
+  const driveFiles = new Map<string, StoredDriveFile>();
 
   const snippets = new Map<
     string,
@@ -117,6 +148,7 @@ async function main() {
       req.url.startsWith("/api/snippets") ||
       req.url.startsWith("/api/sites") ||
       req.url.startsWith("/api/site-items") ||
+      req.url.startsWith("/api/drive") ||
       req.url.startsWith("/api/files/")
     ) {
       try {
@@ -469,6 +501,151 @@ async function main() {
         updatedAt: s.updatedAt,
       }));
     return { items };
+  });
+
+  app.post<{
+    Body: {
+      clientFolderId: string;
+      name: string;
+      parentId: string | null;
+      path?: string;
+      updatedAt: number;
+    };
+  }>("/api/drive/folders/upsert", async (req, reply) => {
+    const user = req.user as UserPayload;
+    const b = req.body;
+    if (!b?.clientFolderId) return reply.status(400).send({ message: "缺少 clientFolderId" });
+    const name = (b.name ?? "").trim();
+    if (!name) return reply.status(400).send({ message: "目录名称不能为空" });
+    const cloudId = `dfd_${b.clientFolderId}`;
+    driveFolders.set(cloudId, {
+      userId: user.sub,
+      clientFolderId: b.clientFolderId,
+      cloudId,
+      name,
+      parentId: b.parentId ?? null,
+      path: b.path,
+      updatedAt: b.updatedAt ?? Date.now(),
+    });
+    return { cloudId };
+  });
+
+  app.get("/api/drive/folders", async (req) => {
+    const user = req.user as UserPayload;
+    const items = [...driveFolders.values()]
+      .filter((x) => x.userId === user.sub)
+      .map((x) => ({
+        cloudId: x.cloudId,
+        clientFolderId: x.clientFolderId,
+        name: x.name,
+        parentId: x.parentId,
+        path: x.path,
+        updatedAt: x.updatedAt,
+      }));
+    return { items };
+  });
+
+  app.post("/api/drive/files/push", async (req, reply) => {
+    const user = req.user as UserPayload;
+    const parts = req.parts();
+    let metaStr = "";
+    let fileBuffer: Buffer | null = null;
+    let fileExt = ".bin";
+
+    for await (const part of parts) {
+      if (part.type === "file" && part.fieldname === "file") {
+        fileBuffer = await part.toBuffer();
+        fileExt = path.extname(part.filename || "") || ".bin";
+      } else if (part.type === "field" && part.fieldname === "meta") {
+        metaStr = String(part.value);
+      }
+    }
+    if (!metaStr) return reply.status(400).send({ message: "缺少 meta" });
+    if (!fileBuffer) return reply.status(400).send({ message: "缺少文件二进制" });
+
+    let meta: {
+      clientFileId: string;
+      clientFolderId: string;
+      name: string;
+      mimeType?: string;
+      sizeBytes: number;
+      checksum?: string;
+      updatedAt: number;
+    };
+    try {
+      meta = JSON.parse(metaStr) as typeof meta;
+    } catch {
+      return reply.status(400).send({ message: "meta 不是合法 JSON" });
+    }
+    if (!meta.clientFileId || !meta.clientFolderId || !meta.name) {
+      return reply.status(400).send({ message: "meta 字段不完整" });
+    }
+
+    const cloudId = `dff_${meta.clientFileId}`;
+    const existing = driveFiles.get(cloudId);
+    if (existing && existing.userId !== user.sub) {
+      return reply.status(403).send({ message: "无权覆盖该文件" });
+    }
+    if (existing?.storageId) {
+      await removeStoredFile(existing.storageId);
+    }
+    const storageId = await saveUserFile(user.sub, fileBuffer, fileExt);
+    driveFiles.set(cloudId, {
+      userId: user.sub,
+      clientFileId: meta.clientFileId,
+      clientFolderId: meta.clientFolderId,
+      cloudId,
+      name: meta.name,
+      mimeType: meta.mimeType,
+      sizeBytes: meta.sizeBytes,
+      checksum: meta.checksum,
+      storageId,
+      updatedAt: meta.updatedAt ?? Date.now(),
+    });
+    return { cloudId, storageId };
+  });
+
+  app.get("/api/drive/files", async (req) => {
+    const user = req.user as UserPayload;
+    const items = [...driveFiles.values()]
+      .filter((x) => x.userId === user.sub)
+      .map((x) => ({
+        cloudId: x.cloudId,
+        clientFileId: x.clientFileId,
+        clientFolderId: x.clientFolderId,
+        name: x.name,
+        mimeType: x.mimeType,
+        sizeBytes: x.sizeBytes,
+        checksum: x.checksum,
+        storageId: x.storageId,
+        updatedAt: x.updatedAt,
+      }));
+    return { items };
+  });
+
+  app.get<{ Params: { cloudId: string } }>("/api/drive/files/:cloudId/download", async (req, reply) => {
+    const user = req.user as UserPayload;
+    const cloudId = req.params.cloudId;
+    const file = driveFiles.get(cloudId);
+    if (!file || file.userId !== user.sub) {
+      return reply.status(404).send({ message: "云端文件不存在" });
+    }
+    const filePath = path.join(UPLOAD_ROOT, file.storageId);
+    reply.header("Content-Type", file.mimeType || "application/octet-stream");
+    return reply.send(createReadStream(filePath));
+  });
+
+  app.delete<{ Params: { clientFileId: string } }>("/api/drive/files/:clientFileId", async (req, reply) => {
+    const user = req.user as UserPayload;
+    const { clientFileId } = req.params;
+    const cloudId = `dff_${clientFileId}`;
+    const file = driveFiles.get(cloudId);
+    if (!file || file.userId !== user.sub) {
+      return reply.status(404).send({ message: "云端文件不存在" });
+    }
+    await removeStoredFile(file.storageId);
+    driveFiles.delete(cloudId);
+    return { ok: true };
   });
 
   const port = Number(process.env.PORT ?? 3001);

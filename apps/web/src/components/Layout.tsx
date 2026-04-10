@@ -1,5 +1,6 @@
 import {
   AppstoreOutlined,
+  FolderOpenOutlined,
   CloudSyncOutlined,
   CloudUploadOutlined,
   FileTextOutlined,
@@ -17,6 +18,7 @@ function pathToMenuKey(pathname: string): string {
   if (pathname.startsWith("/upload")) return "/upload";
   if (pathname.startsWith("/synced")) return "/synced";
   if (pathname.startsWith("/layering-demo")) return "/layering-demo";
+  if (pathname.startsWith("/cloud-drive")) return "/cloud-drive";
   return "/";
 }
 
@@ -60,6 +62,13 @@ export function Layout() {
             onClick={() => navigate("/upload")}
           >
             上传中心
+          </Button>
+          <Button
+            type={selectedKey === "/cloud-drive" ? "primary" : "default"}
+            icon={<FolderOpenOutlined />}
+            onClick={() => navigate("/cloud-drive")}
+          >
+            云盘
           </Button>
           <Button
             type={selectedKey === "/layering-demo" ? "primary" : "default"}
