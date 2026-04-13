@@ -1,0 +1,232 @@
+---
+description: React 页面四层架构（页面入口 / 区域组件 / 业务 Hooks / 纯展示组件）
+alwaysApply: true
+---
+
+# React 页面四层架构（AI 规则）
+
+本规则定义 React（TypeScript）项目中**单个页面**的标准分层方式。目标：职责清晰、文件短小、跨区域解耦、可独立测试。
+
+> 本规则自包含，可直接复制到任意 React + TypeScript 项目的 `.cursor/rules/` 目录下使用。
+
+---
+
+## 四层总览
+
+| 层 | 典型文件位置 | 可以做 | 不可以做 |
+|---|---|---|---|
+| **1. 页面入口 (Page Entry)** | `pages/<Name>/index.tsx` | 持有跨区域共享状态；编排区域组件间的联动；路由守卫 / 权限判断 | 不堆放大段 JSX；不包含可复用的数据操作逻辑 |
+| **2. 区域组件 (Regional Block)** | `pages/<Name>/components/<Region>Panel.tsx` | 管理区域内部的 UI 交互（选中、拖拽、输入）；调用本页业务 Hooks | 不编排其他区域的逻辑；不直接修改其他区域的状态 |
+| **3. 业务 Hooks (Business Hooks)** | `pages/<Name>/hooks/use<Domain>.ts` | API 调用、数据读写、缓存、业务规则计算；暴露 `state + actions` | 不操作 DOM；不 import React 组件；不关心布局 |
+| **4. 纯展示组件 (Presentation)** | `pages/<Name>/components/<Widget>View.tsx` | 根据 props 渲染 DOM；通过 props 回调触发事件 | 不调用 API / 数据库；不直接读写全局状态；不承担跨区域编排 |
+
+---
+
+## 层间通信规则
+
+```
+┌─────────────────────────────────────────────┐
+│               页面入口 (Entry)                │
+│  · 持有跨区共享 state                         │
+│  · 向下传递 props / callbacks                 │
+│  · 调用业务 Hooks 获取 actions                │
+├──────────┬────────────────┬─────────────────┤
+│ 区域组件A │   区域组件B    │   区域组件C      │
+│ ┌──────┐ │  ┌──────────┐ │  ┌────────────┐ │
+│ │纯展示│ │  │ 纯展示   │ │  │  纯展示    │ │
+│ └──────┘ │  └──────────┘ │  └────────────┘ │
+├──────────┴────────────────┴─────────────────┤
+│            业务 Hooks (共享数据层)             │
+│  · useXxxList / useXxxDetail / useXxxMutations│
+│  · 可被入口和区域组件调用                      │
+└─────────────────────────────────────────────┘
+```
+
+### 关键约束
+
+1. **纯展示 → 只用 props**：不 import hooks、不访问数据层。
+2. **区域组件 → 对外接口最小化**：只通过 `onXxxChange` / `onRegisterActions` 等回调与入口通信。
+3. **业务 Hooks → 不感知 UI**：返回 `{ state, actions }` 或等价结构；谁调用由组件层决定。
+4. **页面入口 → 薄编排层**：避免在入口写 200+ 行 JSX，复杂 UI 下沉到区域组件或纯展示。
+5. **跨区域联动 → 归入口**：区域 A 需要影响区域 B 时，通过入口中转，不在 A 中直接 import B 的内部状态。
+
+---
+
+## 目录结构模板
+
+```
+src/pages/<PageName>/
+├── index.tsx                          # 页面入口
+├── components/
+│   ├── <RegionA>Panel.tsx             # 区域组件
+│   ├── <RegionB>Panel.tsx             # 区域组件
+│   ├── <PureWidget>View.tsx           # 纯展示
+│   ├── <PureWidget>Card.tsx           # 纯展示
+│   └── ...
+├── hooks/
+│   ├── use<DomainA>.ts                # 业务 Hook
+│   ├── use<DomainB>.ts                # 业务 Hook
+│   └── ...
+└── types.ts                           # (可选) 页面级共享类型
+```
+
+---
+
+## 各层详细规则
+
+### 1. 页面入口
+
+```tsx
+// pages/OrderManagement/index.tsx
+export function OrderManagementPage() {
+  // 1) 调用业务 hooks
+  const { orders, filters, setFilters, deleteOrder } = useOrders();
+  const { selectedId, select } = useSelection();
+
+  // 2) 派生跨区域数据
+  const selectedOrder = orders.find(o => o.id === selectedId) ?? null;
+
+  // 3) 编排各区域
+  return (
+    <Layout>
+      <Layout.Sider>
+        <FilterPanel filters={filters} onChange={setFilters} />
+      </Layout.Sider>
+      <Layout.Content>
+        <OrderListPanel
+          orders={orders}
+          selectedId={selectedId}
+          onSelect={select}
+        />
+        <OrderDetailView
+          order={selectedOrder}
+          onDelete={() => selectedId && deleteOrder(selectedId)}
+        />
+      </Layout.Content>
+    </Layout>
+  );
+}
+```
+
+**入口检查清单：**
+- [ ] 跨区域共享状态是否在此定义？
+- [ ] 是否只做"组合与传递"，没有大段渲染逻辑？
+- [ ] 路由/权限相关逻辑是否在此处理？
+
+### 2. 区域组件
+
+```tsx
+// pages/OrderManagement/components/OrderListPanel.tsx
+type Props = {
+  orders: Order[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+};
+
+export function OrderListPanel({ orders, selectedId, onSelect }: Props) {
+  // 区域内部状态：排序、搜索、分页等
+  const [sortField, setSortField] = useState<string>("createdAt");
+  const sorted = useMemo(() => sortBy(orders, sortField), [orders, sortField]);
+
+  return (
+    <Table
+      dataSource={sorted}
+      rowClassName={(r) => r.id === selectedId ? "selected" : ""}
+      onRow={(r) => ({ onClick: () => onSelect(r.id) })}
+      // ...columns
+    />
+  );
+}
+```
+
+**区域组件检查清单：**
+- [ ] 对外只暴露 props 回调（`onSelect`、`onChange` 等），不暴露内部实现？
+- [ ] 区域内部的交互状态（排序、展开/折叠）是否内聚在本组件？
+- [ ] 是否避免了 import 其他区域组件的内部状态？
+
+### 3. 业务 Hooks
+
+```tsx
+// pages/OrderManagement/hooks/useOrders.ts
+export function useOrders() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [filters, setFilters] = useState<OrderFilters>(defaultFilters);
+  const [loading, setLoading] = useState(false);
+
+  const fetchOrders = useCallback(async (f: OrderFilters) => {
+    setLoading(true);
+    try {
+      const data = await api.getOrders(f);
+      setOrders(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchOrders(filters); }, [fetchOrders, filters]);
+
+  const deleteOrder = useCallback(async (id: string) => {
+    await api.deleteOrder(id);
+    setOrders(prev => prev.filter(o => o.id !== id));
+  }, []);
+
+  return { orders, filters, setFilters, loading, deleteOrder };
+}
+```
+
+**业务 Hooks 检查清单：**
+- [ ] 是否只暴露 `state + actions`，不包含 JSX？
+- [ ] 是否与布局无关（换一种 UI 也能用同一个 hook）？
+- [ ] 同一类操作是否集中在一个 hook，而非散落在多个组件中各写一套？
+
+### 4. 纯展示组件
+
+```tsx
+// pages/OrderManagement/components/OrderStatusBadge.tsx
+type Props = { status: OrderStatus };
+
+export function OrderStatusBadge({ status }: Props) {
+  const config = STATUS_MAP[status];
+  return <Tag color={config.color}>{config.label}</Tag>;
+}
+```
+
+**纯展示检查清单：**
+- [ ] 是否只使用 props（不调用 hooks、不访问全局 store）？
+- [ ] 是否可以通过 Storybook / 单元测试独立渲染？
+
+---
+
+## 演进策略
+
+1. **新建页面**：直接按四层结构创建目录和文件。
+2. **简单页面**：允许入口 + 纯展示两层（跳过区域组件），业务逻辑少时 hook 也可内联在入口。
+3. **单文件 → 四层**：最小侵入，优先抽出最复杂或最复用的部分——
+   - 先抽业务 Hooks（数据操作独立）
+   - 再抽区域组件（大块 UI 独立）
+   - 最后抽纯展示（小粒度复用）
+
+---
+
+## 常见反模式
+
+| 反模式 | 问题 | 修正 |
+|--------|------|------|
+| 纯展示组件直接调用 `fetch` / 数据库 | 无法独立测试，职责混乱 | 数据操作移到业务 Hook |
+| 区域 A 直接 import 区域 B 的状态 | 区域间紧耦合 | 通过页面入口中转 |
+| 页面入口 500+ 行 JSX | 入口变成"上帝组件" | 拆分区域组件和纯展示 |
+| 多个组件各自写一套相同的 CRUD | 逻辑重复，改一处漏一处 | 统一到业务 Hook |
+| 为减少 props 透传引入全局 store | 隐式耦合，页面间互相影响 | 保持 props 传递，或用页面级 Context |
+| Hook 内部操作 DOM（`document.querySelector`） | Hook 应与 UI 解耦 | DOM 操作放到组件层的 ref/effect |
+
+---
+
+## 命名约定（建议）
+
+| 类型 | 命名模式 | 示例 |
+|------|---------|------|
+| 页面入口 | `<PageName>Page` 或默认导出 `index.tsx` | `OrderManagementPage` |
+| 区域组件 | `<Region>Panel` / `<Region>Section` / `<Region>Sidebar` | `FilterPanel`, `ListSection` |
+| 业务 Hook | `use<Domain>` / `use<Page>State` / `use<Page>Actions` | `useOrders`, `useOrderMutations` |
+| 纯展示 | `<Widget>View` / `<Widget>Card` / `<Widget>Badge` / `<Widget>Bar` | `OrderDetailView`, `StatusBadge` |
+| 页面类型 | `types.ts` | — |
