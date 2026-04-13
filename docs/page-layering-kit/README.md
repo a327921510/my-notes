@@ -4,35 +4,57 @@
 
 ---
 
-## 文件清单
+## 文件清单与放置位置
 
-| 文件 | 类型 | 作用 | 放哪里 |
-|------|------|------|--------|
-| `page-layering.rule.mdc` | Cursor 规则 | AI 始终遵守的架构约束 | 项目 `.cursor/rules/` 目录下 |
-| `generate-page.skill.md` | 技能/Prompt | 引导 AI 按流程生成页面脚手架 | Cursor 对话中 @引用 或粘贴为 System Prompt |
-| `page-layering-guide.md` | 开发文档 | 完整示例、通信模式、反模式、FAQ | 项目 `docs/` 或 @引用给 AI 作为参考 |
-| `complex-page-prd.md` | PRD 范例 | 企业级 API 管理仪表盘 | 作为生成输入传给 AI |
+> **核心原则**：只有规则文件放 `.cursor/rules/`（自动注入），其他文件放 `docs/`（按需 @引用）。
+> 如果把所有文件都塞进 `.cursor/rules/`，每次对话都会自动注入全部内容，浪费 context 窗口、降低 AI 效果。
+
+| 文件 | 类型 | 放哪里 | 注入方式 | 说明 |
+|------|------|--------|---------|------|
+| `page-layering.rule.mdc` | Cursor 规则 | `.cursor/rules/` | **自动**（每次对话） | 架构约束，始终生效 |
+| `generate-page.skill.md` | 技能 Prompt | `docs/` | **手动** @引用 | 只在"生成页面"时引用 |
+| `page-layering-guide.md` | 开发文档 | `docs/` | **手动** @引用 | 只在需要完整示例时引用 |
+| `complex-page-prd.md` | PRD 范例 | `docs/` | **手动** @引用 | 只在生成该特定页面时引用 |
+| `README.md` | 使用说明 | `docs/` | 不需要引用 | 给人看的说明 |
+
+安装后的项目结构：
+
+```
+你的项目/
+├── .cursor/rules/
+│   └── page-layering.rule.mdc      ← 唯一放这里的文件（自动注入）
+├── docs/
+│   ├── generate-page.skill.md       ← 按需 @引用
+│   ├── page-layering-guide.md       ← 按需 @引用
+│   └── complex-page-prd.md          ← 按需 @引用
+├── src/
+│   └── pages/
+└── ...
+```
 
 ---
 
 ## 快速开始
 
-### 第 1 步：在新项目中安装规则
+### 第 1 步：复制文件到新项目
 
 ```bash
 # 在你的 React 项目根目录
-mkdir -p .cursor/rules
-cp page-layering.rule.mdc .cursor/rules/
-```
+mkdir -p .cursor/rules docs
 
-规则文件设置了 `alwaysApply: true`，Cursor 会在每次对话中自动注入。
+# 规则文件 → .cursor/rules/（自动注入）
+cp page-layering.rule.mdc .cursor/rules/
+
+# 其他文件 → docs/（按需引用）
+cp generate-page.skill.md page-layering-guide.md complex-page-prd.md docs/
+```
 
 ### 第 2 步：生成页面
 
-在 Cursor 中新建对话，发送如下内容：
+在 Cursor 中新建对话，@引用需要的文件：
 
 ```
-@page-layering-guide.md @generate-page.skill.md
+@docs/generate-page.skill.md @docs/page-layering-guide.md
 
 请按照四层架构生成一个用户管理页面，包含：
 - 左侧：用户列表（搜索、筛选角色）
@@ -40,12 +62,14 @@ cp page-layering.rule.mdc .cursor/rules/
 - 功能：增删改查、批量操作、导出
 ```
 
+> 不需要 @引用规则文件，它已经通过 `.cursor/rules/` 自动生效了。
+
 AI 将按照技能文件定义的流程：分析需求 → 确认结构 → 逐文件生成。
 
 ### 第 3 步：使用 PRD 生成复杂页面
 
 ```
-@page-layering-guide.md @generate-page.skill.md @complex-page-prd.md
+@docs/generate-page.skill.md @docs/page-layering-guide.md @docs/complex-page-prd.md
 
 请按照 PRD 中描述的 API 管理仪表盘页面，生成完整代码。
 技术栈：React 18 + TypeScript + Ant Design 5 + Tailwind CSS + Recharts。
