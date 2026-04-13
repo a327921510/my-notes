@@ -462,6 +462,23 @@ async function main() {
     return { items };
   });
 
+  app.delete<{ Params: { clientSiteId: string } }>("/api/sites/:clientSiteId", async (req, reply) => {
+    const user = req.user as UserPayload;
+    const { clientSiteId } = req.params;
+    const cloudId = `st_${clientSiteId}`;
+    const s = sites.get(cloudId);
+    if (!s || s.userId !== user.sub) {
+      return reply.status(404).send({ message: "未找到云端站点" });
+    }
+    sites.delete(cloudId);
+    for (const [key, value] of [...siteItems.entries()]) {
+      if (value.userId === user.sub && value.clientSiteId === clientSiteId) {
+        siteItems.delete(key);
+      }
+    }
+    return { ok: true };
+  });
+
   app.post<{
     Body: {
       clientItemId: string;
@@ -501,6 +518,18 @@ async function main() {
         updatedAt: s.updatedAt,
       }));
     return { items };
+  });
+
+  app.delete<{ Params: { clientItemId: string } }>("/api/site-items/:clientItemId", async (req, reply) => {
+    const user = req.user as UserPayload;
+    const { clientItemId } = req.params;
+    const cloudId = `si_${clientItemId}`;
+    const it = siteItems.get(cloudId);
+    if (!it || it.userId !== user.sub) {
+      return reply.status(404).send({ message: "未找到云端站点条目" });
+    }
+    siteItems.delete(cloudId);
+    return { ok: true };
   });
 
   app.post<{

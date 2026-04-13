@@ -1,5 +1,6 @@
-import { db } from "@my-notes/local-db";
-import { createId, type SyncStatus } from "@my-notes/shared";
+import type { NotesDB } from "@my-notes/local-db";
+import { createId, needsUpload, type SyncStatus } from "@my-notes/shared";
+import { joinApiPath, type SyncClientOptions } from "./api-path";
 
 type SitePayload = {
   cloudId: string;
@@ -19,15 +20,15 @@ type SiteItemPayload = {
   updatedAt: number;
 };
 
-export function needsUpload(syncStatus: SyncStatus): boolean {
-  return syncStatus === "local_only" || syncStatus === "dirty" || syncStatus === "failed";
-}
-
-async function convertMissingRemoteCloudDataToLocalDrafts(cloudSites: SitePayload[], cloudItems: SiteItemPayload[]) {
+async function convertMissingRemoteCloudDataToLocalDrafts(
+  dbx: NotesDB,
+  cloudSites: SitePayload[],
+  cloudItems: SiteItemPayload[],
+) {
   const remoteSiteIds = new Set(cloudSites.map((s) => s.clientSiteId));
   const remoteItemIds = new Set(cloudItems.map((i) => i.clientItemId));
-  const localSites = await db.sites.toArray();
-  const localItems = await db.site_items.toArray();
+  const localSites = await dbx.sites.toArray();
+  const localItems = await dbx.site_items.toArray();
 
   const siteIdRemap = new Map<string, string>();
   for (const localSite of localSites) {
@@ -36,7 +37,7 @@ async function convertMissingRemoteCloudDataToLocalDrafts(cloudSites: SitePayloa
     if (remoteSiteIds.has(localSite.id)) continue;
     const newSiteId = createId("site");
     siteIdRemap.set(localSite.id, newSiteId);
-    await db.sites.add({
+    await dbx.sites.add({
       id: newSiteId,
       name: localSite.name,
       address: localSite.address,
@@ -44,13 +45,13 @@ async function convertMissingRemoteCloudDataToLocalDrafts(cloudSites: SitePayloa
       updatedAt: Date.now(),
       syncStatus: "local_only",
     });
-    await db.sites.delete(localSite.id);
+    await dbx.sites.delete(localSite.id);
   }
 
   for (const localItem of localItems) {
     const siteWasRemapped = siteIdRemap.get(localItem.siteId);
     if (siteWasRemapped) {
-      await db.site_items.add({
+      await dbx.site_items.add({
         id: createId("item"),
         siteId: siteWasRemapped,
         name: localItem.name,
@@ -58,14 +59,14 @@ async function convertMissingRemoteCloudDataToLocalDrafts(cloudSites: SitePayloa
         updatedAt: Date.now(),
         syncStatus: "local_only",
       });
-      await db.site_items.delete(localItem.id);
+      await dbx.site_items.delete(localItem.id);
       continue;
     }
 
     const wasFromCloud = !!localItem.cloudId || localItem.syncStatus === "synced";
     if (!wasFromCloud) continue;
     if (remoteItemIds.has(localItem.id)) continue;
-    await db.site_items.add({
+    await dbx.site_items.add({
       id: createId("item"),
       siteId: localItem.siteId,
       name: localItem.name,
@@ -73,15 +74,21 @@ async function convertMissingRemoteCloudDataToLocalDrafts(cloudSites: SitePayloa
       updatedAt: Date.now(),
       syncStatus: "local_only",
     });
-    await db.site_items.delete(localItem.id);
+    await dbx.site_items.delete(localItem.id);
   }
 }
 
-export async function uploadSite(token: string, siteId: string): Promise<void> {
-  const site = await db.sites.get(siteId);
+export async function uploadSite(
+  dbx: NotesDB,
+  token: string,
+  siteId: string,
+  options: SyncClientOptions = {},
+): Promise<void> {
+  const { apiBase } = options;
+  const site = await dbx.sites.get(siteId);
   if (!site) return;
-  const siteItems = await db.site_items.where("siteId").equals(site.id).toArray();
-  const res = await fetch("/api/sites/push-full", {
+  const siteItems = await dbx.site_items.where("siteId").equals(site.id).toArray();
+  const res = await fetch(joinApiPath(apiBase, "/api/sites/push-full"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -106,16 +113,56 @@ export async function uploadSite(token: string, siteId: string): Promise<void> {
     throw new Error((err as { message?: string }).message ?? "站点上传失败");
   }
   const data = (await res.json()) as { cloudId: string; version: number };
-  await db.sites.update(site.id, { syncStatus: "synced", cloudId: data.cloudId, version: data.version });
+  await dbx.sites.update(site.id, { syncStatus: "synced", cloudId: data.cloudId, version: data.version });
   for (const item of siteItems) {
-    await db.site_items.update(item.id, { syncStatus: "synced" });
+    await dbx.site_items.update(item.id, { syncStatus: "synced" });
   }
 }
 
-export async function uploadSiteItem(token: string, itemId: string): Promise<void> {
-  const item = await db.site_items.get(itemId);
+/** 删除云端站点及其下全部条目（与 `DELETE /api/snippets/:id` 对称）。 */
+export async function deleteSiteOnCloud(
+  token: string,
+  clientSiteId: string,
+  options: SyncClientOptions = {},
+): Promise<void> {
+  const { apiBase } = options;
+  const res = await fetch(joinApiPath(apiBase, `/api/sites/${encodeURIComponent(clientSiteId)}`), {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok && res.status !== 404) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "删除云端站点失败");
+  }
+}
+
+/** 删除云端单条条目（与 `DELETE /api/snippets/:id` 对称）。 */
+export async function deleteSiteItemOnCloud(
+  token: string,
+  clientItemId: string,
+  options: SyncClientOptions = {},
+): Promise<void> {
+  const { apiBase } = options;
+  const res = await fetch(joinApiPath(apiBase, `/api/site-items/${encodeURIComponent(clientItemId)}`), {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok && res.status !== 404) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? "删除云端站点条目失败");
+  }
+}
+
+export async function uploadSiteItem(
+  dbx: NotesDB,
+  token: string,
+  itemId: string,
+  options: SyncClientOptions = {},
+): Promise<void> {
+  const { apiBase } = options;
+  const item = await dbx.site_items.get(itemId);
   if (!item) return;
-  const res = await fetch("/api/site-items/upsert", {
+  const res = await fetch(joinApiPath(apiBase, "/api/site-items/upsert"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -134,26 +181,31 @@ export async function uploadSiteItem(token: string, itemId: string): Promise<voi
     throw new Error((err as { message?: string }).message ?? "站点条目上传失败");
   }
   const data = (await res.json()) as { cloudId: string };
-  await db.site_items.update(item.id, { syncStatus: "synced", cloudId: data.cloudId });
+  await dbx.site_items.update(item.id, { syncStatus: "synced", cloudId: data.cloudId });
 }
 
-export async function pullSitesFromCloud(token: string): Promise<{ sitesApplied: number; itemsApplied: number }> {
+export async function pullSitesFromCloud(
+  dbx: NotesDB,
+  token: string,
+  options: SyncClientOptions = {},
+): Promise<{ sitesApplied: number; itemsApplied: number }> {
+  const { apiBase } = options;
   const [sRes, iRes] = await Promise.all([
-    fetch("/api/sites", { headers: { Authorization: `Bearer ${token}` } }),
-    fetch("/api/site-items", { headers: { Authorization: `Bearer ${token}` } }),
+    fetch(joinApiPath(apiBase, "/api/sites"), { headers: { Authorization: `Bearer ${token}` } }),
+    fetch(joinApiPath(apiBase, "/api/site-items"), { headers: { Authorization: `Bearer ${token}` } }),
   ]);
   if (!sRes.ok || !iRes.ok) {
     throw new Error("拉取站点数据失败");
   }
   const { items: cloudSites } = (await sRes.json()) as { items: SitePayload[] };
   const { items: cloudItems } = (await iRes.json()) as { items: SiteItemPayload[] };
-  await convertMissingRemoteCloudDataToLocalDrafts(cloudSites, cloudItems);
+  await convertMissingRemoteCloudDataToLocalDrafts(dbx, cloudSites, cloudItems);
 
   let sitesApplied = 0;
   for (const s of cloudSites) {
-    const local = await db.sites.get(s.clientSiteId);
+    const local = await dbx.sites.get(s.clientSiteId);
     if (!local || s.updatedAt >= local.updatedAt) {
-      await db.sites.put({
+      await dbx.sites.put({
         id: s.clientSiteId,
         name: s.name,
         address: s.address,
@@ -168,9 +220,9 @@ export async function pullSitesFromCloud(token: string): Promise<{ sitesApplied:
 
   let itemsApplied = 0;
   for (const i of cloudItems) {
-    const local = await db.site_items.get(i.clientItemId);
+    const local = await dbx.site_items.get(i.clientItemId);
     if (!local || i.updatedAt >= local.updatedAt) {
-      await db.site_items.put({
+      await dbx.site_items.put({
         id: i.clientItemId,
         siteId: i.clientSiteId,
         name: i.name,
@@ -193,22 +245,25 @@ export async function pullSitesFromCloud(token: string): Promise<{ sitesApplied:
  * - 两端都有且差异：保留远端记录为 synced；本地旧内容复制为新记录 local_only，再用远端覆盖原记录
  */
 export async function syncAllSitesWithConflict(
+  dbx: NotesDB,
   token: string,
+  options: SyncClientOptions = {},
 ): Promise<{ pulledSites: number; pulledItems: number; uploadedSites: number; uploadedItems: number }> {
+  const { apiBase } = options;
   const [sRes, iRes] = await Promise.all([
-    fetch("/api/sites", { headers: { Authorization: `Bearer ${token}` } }),
-    fetch("/api/site-items", { headers: { Authorization: `Bearer ${token}` } }),
+    fetch(joinApiPath(apiBase, "/api/sites"), { headers: { Authorization: `Bearer ${token}` } }),
+    fetch(joinApiPath(apiBase, "/api/site-items"), { headers: { Authorization: `Bearer ${token}` } }),
   ]);
   if (!sRes.ok || !iRes.ok) throw new Error("拉取站点数据失败");
   const { items: cloudSites } = (await sRes.json()) as { items: SitePayload[] };
   const { items: cloudItems } = (await iRes.json()) as { items: SiteItemPayload[] };
-  await convertMissingRemoteCloudDataToLocalDrafts(cloudSites, cloudItems);
+  await convertMissingRemoteCloudDataToLocalDrafts(dbx, cloudSites, cloudItems);
 
   let pulledSites = 0;
   for (const remote of cloudSites) {
-    const local = await db.sites.get(remote.clientSiteId);
+    const local = await dbx.sites.get(remote.clientSiteId);
     if (!local) {
-      await db.sites.put({
+      await dbx.sites.put({
         id: remote.clientSiteId,
         name: remote.name,
         address: remote.address,
@@ -222,7 +277,7 @@ export async function syncAllSitesWithConflict(
     }
     const same = local.name === remote.name && local.address === remote.address;
     if (!same) {
-      await db.sites.add({
+      await dbx.sites.add({
         id: createId("site"),
         name: local.name,
         address: local.address,
@@ -230,7 +285,7 @@ export async function syncAllSitesWithConflict(
         updatedAt: Date.now(),
         syncStatus: "local_only",
       });
-      await db.sites.put({
+      await dbx.sites.put({
         id: remote.clientSiteId,
         name: remote.name,
         address: remote.address,
@@ -242,7 +297,7 @@ export async function syncAllSitesWithConflict(
       pulledSites++;
       continue;
     }
-    await db.sites.update(local.id, {
+    await dbx.sites.update(local.id, {
       updatedAt: Math.max(local.updatedAt, remote.updatedAt),
       version: remote.version ?? local.version ?? 1,
       syncStatus: "synced",
@@ -252,9 +307,9 @@ export async function syncAllSitesWithConflict(
 
   let pulledItems = 0;
   for (const remote of cloudItems) {
-    const local = await db.site_items.get(remote.clientItemId);
+    const local = await dbx.site_items.get(remote.clientItemId);
     if (!local) {
-      await db.site_items.put({
+      await dbx.site_items.put({
         id: remote.clientItemId,
         siteId: remote.clientSiteId,
         name: remote.name,
@@ -268,7 +323,7 @@ export async function syncAllSitesWithConflict(
     }
     const same = local.name === remote.name && local.content === remote.content && local.siteId === remote.clientSiteId;
     if (!same) {
-      await db.site_items.add({
+      await dbx.site_items.add({
         id: createId("item"),
         siteId: local.siteId,
         name: local.name,
@@ -276,7 +331,7 @@ export async function syncAllSitesWithConflict(
         updatedAt: Date.now(),
         syncStatus: "local_only",
       });
-      await db.site_items.put({
+      await dbx.site_items.put({
         id: remote.clientItemId,
         siteId: remote.clientSiteId,
         name: remote.name,
@@ -288,7 +343,7 @@ export async function syncAllSitesWithConflict(
       pulledItems++;
       continue;
     }
-    await db.site_items.update(local.id, {
+    await dbx.site_items.update(local.id, {
       updatedAt: Math.max(local.updatedAt, remote.updatedAt),
       syncStatus: "synced",
       cloudId: remote.cloudId,
@@ -296,4 +351,44 @@ export async function syncAllSitesWithConflict(
   }
 
   return { pulledSites, pulledItems, uploadedSites: 0, uploadedItems: 0 };
+}
+
+/** 将未同步的站点与条目推送到云端（与 Web 端 SitesPage「同步到云端」/「推送到云端」一致）。 */
+export async function syncDirtySitesToCloud(
+  dbx: NotesDB,
+  token: string,
+  options: SyncClientOptions = {},
+  selectedSiteId?: string | null,
+): Promise<void> {
+  if (!token) throw new Error("请先登录后再同步");
+  if (selectedSiteId) {
+    const selected = await dbx.sites.get(selectedSiteId);
+    if (selected) {
+      try {
+        await uploadSite(dbx, token, selected.id, options);
+      } catch (e) {
+        await dbx.sites.update(selected.id, { syncStatus: "failed" });
+        throw e;
+      }
+    }
+  }
+  const dirtySites = await dbx.sites.filter((site) => needsUpload(site.syncStatus as SyncStatus)).toArray();
+  const dirtyItems = await dbx.site_items.filter((item) => needsUpload(item.syncStatus as SyncStatus)).toArray();
+  for (const site of dirtySites) {
+    try {
+      await uploadSite(dbx, token, site.id, options);
+    } catch (e) {
+      await dbx.sites.update(site.id, { syncStatus: "failed" });
+      if ((e as Error).message.includes("版本不一致")) {
+        throw e;
+      }
+    }
+  }
+  for (const item of dirtyItems) {
+    try {
+      await uploadSiteItem(dbx, token, item.id, options);
+    } catch {
+      await dbx.site_items.update(item.id, { syncStatus: "failed" });
+    }
+  }
 }

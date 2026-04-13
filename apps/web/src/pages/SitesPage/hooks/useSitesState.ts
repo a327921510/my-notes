@@ -2,7 +2,13 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@my-notes/local-db";
 import { createId, nextSyncAfterEdit } from "@my-notes/shared";
-import { pullSitesFromCloud, syncAllSitesWithConflict, uploadSite, uploadSiteItem } from "@/lib/site-sync";
+import {
+  deleteSiteItemOnCloud,
+  deleteSiteOnCloud,
+  pullSitesFromCloud,
+  syncAllSitesWithConflict,
+  syncDirtySitesToCloud,
+} from "@my-notes/sync-client";
 import type { Site, SiteItem } from "../types";
 
 export function useSitesState() {
@@ -93,7 +99,13 @@ export function useSitesState() {
     setSelectedSiteId(siteId);
   };
 
-  const removeSite = async (siteId: string) => {
+  type SiteRemoteOpts = { authToken?: string | null; apiBase?: string };
+
+  const removeSite = async (siteId: string, opts?: SiteRemoteOpts) => {
+    const token = opts?.authToken ?? null;
+    if (token) {
+      await deleteSiteOnCloud(token, siteId, { apiBase: opts?.apiBase });
+    }
     await db.transaction("rw", db.sites, db.site_items, async () => {
       await db.site_items.where("siteId").equals(siteId).delete();
       await db.sites.delete(siteId);
@@ -134,54 +146,38 @@ export function useSitesState() {
     });
   };
 
-  const removeItem = async (siteId: string, itemId: string) => {
+  const removeItem = async (siteId: string, itemId: string, opts?: SiteRemoteOpts) => {
     const current = await db.site_items.get(itemId);
     if (!current || current.siteId !== siteId) return;
+    const token = opts?.authToken ?? null;
+    if (token) {
+      await deleteSiteItemOnCloud(token, itemId, { apiBase: opts?.apiBase });
+    } else if (current.syncStatus !== "local_only") {
+      const site = await db.sites.get(siteId);
+      if (site) {
+        await db.sites.update(siteId, {
+          updatedAt: Date.now(),
+          syncStatus: nextSyncAfterEdit(site.syncStatus),
+          version: site.version ?? 1,
+        });
+      }
+    }
     await db.site_items.delete(itemId);
   };
 
   const syncSiteData = async (token: string | null, selectedSiteIdForSync?: string | null) => {
     if (!token) throw new Error("请先登录后再同步");
-    if (selectedSiteIdForSync) {
-      const selectedSite = await db.sites.get(selectedSiteIdForSync);
-      if (selectedSite) {
-        try {
-          await uploadSite(token, selectedSite.id);
-        } catch (e) {
-          await db.sites.update(selectedSite.id, { syncStatus: "failed" });
-          throw e;
-        }
-      }
-    }
-    const dirtySites = await db.sites.filter((site) => site.syncStatus !== "synced").toArray();
-    const dirtyItems = await db.site_items.filter((item) => item.syncStatus !== "synced").toArray();
-    for (const site of dirtySites) {
-      try {
-        await uploadSite(token, site.id);
-      } catch (e) {
-        await db.sites.update(site.id, { syncStatus: "failed" });
-        if ((e as Error).message.includes("版本不一致")) {
-          throw e;
-        }
-      }
-    }
-    for (const item of dirtyItems) {
-      try {
-        await uploadSiteItem(token, item.id);
-      } catch {
-        await db.site_items.update(item.id, { syncStatus: "failed" });
-      }
-    }
+    await syncDirtySitesToCloud(db, token, {}, selectedSiteIdForSync);
   };
 
   const pullSiteData = async (token: string | null) => {
     if (!token) throw new Error("请先登录后再拉取");
-    return pullSitesFromCloud(token);
+    return pullSitesFromCloud(db, token, {});
   };
 
   const syncAllWithConflict = async (token: string | null) => {
     if (!token) throw new Error("请先登录后再同步");
-    return syncAllSitesWithConflict(token);
+    return syncAllSitesWithConflict(db, token, {});
   };
 
   return {

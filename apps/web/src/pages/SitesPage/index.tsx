@@ -69,6 +69,28 @@ export function SitesPage() {
     }
   }, [message, pullSiteData, token]);
 
+  const handleDeleteSite = useCallback(
+    async (siteId: string) => {
+      try {
+        await removeSite(siteId, { authToken: token });
+      } catch (e) {
+        message.error((e as Error).message);
+      }
+    },
+    [message, removeSite, token],
+  );
+
+  const handleDeleteItem = useCallback(
+    async (siteId: string, itemId: string) => {
+      try {
+        await removeItem(siteId, itemId, { authToken: token });
+      } catch (e) {
+        message.error((e as Error).message);
+      }
+    },
+    [message, removeItem, token],
+  );
+
   return (
     <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
       <Splitter.Panel defaultSize={320} min={260} max={480}>
@@ -80,7 +102,7 @@ export function SitesPage() {
             onSearch={setSearchKeyword}
             onSelectSite={setSelectedSiteId}
             onCreateSite={handleCreateSite}
-            onDeleteSite={removeSite}
+            onDeleteSite={handleDeleteSite}
             onPullFromCloud={handlePullFromCloud}
             onPushToCloud={handlePushToCloud}
           />
@@ -92,7 +114,7 @@ export function SitesPage() {
             site={selectedSite}
             onAddItem={addItem}
             onUpdateItem={updateItem}
-            onDeleteItem={removeItem}
+            onDeleteItem={handleDeleteItem}
             onSync={handleSync}
             onPull={handlePull}
             onCloneSite={cloneSite}
