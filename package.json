@@ -1,6 +1,6 @@
 {
   "name": "my-notes",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "npm run dev -w @my-notes/web",
     "dev:api": "npm run dev -w @my-notes/api",
-    "build": "npm run build -w @my-notes/shared -w @my-notes/web -w @my-notes/api -w @my-notes/extension",
+    "build": "npm run build -w @my-notes/shared -w @my-notes/local-db -w @my-notes/sync-client -w @my-notes/web -w @my-notes/api -w @my-notes/extension",
     "lint": "npm run lint -w @my-notes/web --if-present"
   },
   "engines": {

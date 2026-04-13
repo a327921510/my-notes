@@ -1,4 +1,4 @@
-import { db } from "@/db/database";
+import { db } from "@my-notes/local-db";
 
 /** Persisted in note HTML as src="mnimg:<imageRecordId>"; editor hydrates to blob: URLs. */
 export function extractReferencedImageIds(contentHtml: string): Set<string> {

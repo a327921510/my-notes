@@ -1,7 +1,7 @@
 import { Space, Tree, Typography, type TreeProps } from "antd";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NoteRecord } from "@my-notes/shared";
-import { ensureDefaultFolder } from "@/db/seed";
+import { ensureDefaultFolder } from "@my-notes/local-db";
 import useFolderState from "../hooks/useFolderState";
 import { useNoteCommands } from "../hooks/useNoteCommands";
 import { useNotesList } from "../hooks/useNotesList";

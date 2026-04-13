@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { createId } from "@/lib/id";
+import { createId } from "@my-notes/shared";
 
 export type DemoItem = { id: string; label: string };
 

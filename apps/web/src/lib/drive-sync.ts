@@ -1,5 +1,5 @@
-import { db } from "@/db/database";
-import { createId } from "@/lib/id";
+import { db } from "@my-notes/local-db";
+import { createId } from "@my-notes/shared";
 
 type CloudFolderPayload = {
   cloudId: string;

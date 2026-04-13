@@ -1,10 +1,9 @@
 import { App } from "antd";
 import { useCallback, useMemo } from "react";
 import type { NoteRecord } from "@my-notes/shared";
-import { db } from "@/db/database";
-import { ensureDefaultFolder, nextSyncAfterEdit } from "@/db/seed";
+import { db, ensureDefaultFolder } from "@my-notes/local-db";
+import { createId, nextSyncAfterEdit } from "@my-notes/shared";
 import { stripHtml } from "@/lib/html";
-import { createId } from "@/lib/id";
 
 function titleFromContent(html: string): string {
   const text = stripHtml(html);

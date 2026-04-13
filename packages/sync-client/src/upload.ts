@@ -1,17 +1,21 @@
+import type { NotesDB } from "@my-notes/local-db";
 import type { ImageRecord, NoteRecord, SnippetRecord } from "@my-notes/shared";
-import { db } from "@/db/database";
+import { joinApiPath, type SyncClientOptions } from "./api-path";
 
 /**
  * 笔记推送：multipart，meta(JSON) + 各 img_<clientImageId> 二进制流；服务端落盘，返回 storageId（非公开 URL）。
  */
 export async function uploadNote(
+  dbx: NotesDB,
   token: string,
   note: NoteRecord,
   images: ImageRecord[],
+  options: SyncClientOptions = {},
 ): Promise<{ cloudId: string }> {
+  const { apiBase } = options;
   const withBlob: ImageRecord[] = [];
   for (const img of images) {
-    const row = await db.blobs.get(img.localBlobRef);
+    const row = await dbx.blobs.get(img.localBlobRef);
     if (row) withBlob.push(img);
   }
 
@@ -33,13 +37,13 @@ export async function uploadNote(
   );
 
   for (const img of withBlob) {
-    const row = await db.blobs.get(img.localBlobRef);
+    const row = await dbx.blobs.get(img.localBlobRef);
     if (!row) continue;
     const file = new File([row.blob], "image.bin", { type: row.blob.type || "application/octet-stream" });
     fd.append(`img_${img.id}`, file);
   }
 
-  const res = await fetch("/api/notes/push", {
+  const res = await fetch(joinApiPath(apiBase, "/api/notes/push"), {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: fd,
@@ -53,16 +57,19 @@ export async function uploadNote(
     images?: { clientImageId: string; storageId: string }[];
   };
   for (const row of data.images ?? []) {
-    await db.images.update(row.clientImageId, { cloudStorageId: row.storageId });
+    await dbx.images.update(row.clientImageId, { cloudStorageId: row.storageId });
   }
   return { cloudId: data.cloudId };
 }
 
 export async function uploadSnippet(
+  dbx: NotesDB,
   token: string,
   snippet: SnippetRecord,
+  options: SyncClientOptions = {},
 ): Promise<{ cloudId: string }> {
-  const res = await fetch("/api/snippets/upsert", {
+  const { apiBase } = options;
+  const res = await fetch(joinApiPath(apiBase, "/api/snippets/upsert"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -82,8 +89,4 @@ export async function uploadSnippet(
     throw new Error((err as { message?: string }).message ?? "短文本上传失败");
   }
   return (await res.json()) as { cloudId: string };
-}
-
-export function needsUpload(syncStatus: NoteRecord["syncStatus"]): boolean {
-  return syncStatus === "local_only" || syncStatus === "dirty" || syncStatus === "failed";
 }

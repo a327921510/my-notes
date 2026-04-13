@@ -1,8 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useMemo, useState } from "react";
-import { db } from "@/db/database";
-import { nextSyncAfterEdit } from "@/db/seed";
-import { createId } from "@/lib/id";
+import { db } from "@my-notes/local-db";
+import { createId, nextSyncAfterEdit } from "@my-notes/shared";
 import { pullSitesFromCloud, syncAllSitesWithConflict, uploadSite, uploadSiteItem } from "@/lib/site-sync";
 import type { Site, SiteItem } from "../types";
 

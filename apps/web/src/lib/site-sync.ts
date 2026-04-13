@@ -1,6 +1,5 @@
-import type { SyncStatus } from "@my-notes/shared";
-import { createId } from "@/lib/id";
-import { db } from "@/db/database";
+import { db } from "@my-notes/local-db";
+import { createId, type SyncStatus } from "@my-notes/shared";
 
 type SitePayload = {
   cloudId: string;

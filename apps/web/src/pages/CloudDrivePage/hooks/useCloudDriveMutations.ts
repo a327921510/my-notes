@@ -1,6 +1,5 @@
-import { nextSyncAfterEdit } from "@/db/seed";
-import { db } from "@/db/database";
-import { createId } from "@/lib/id";
+import { db } from "@my-notes/local-db";
+import { createId, nextSyncAfterEdit } from "@my-notes/shared";
 
 const ILLEGAL_FILE_NAME_CHARS = /[\\/:*?"<>|]/;
 

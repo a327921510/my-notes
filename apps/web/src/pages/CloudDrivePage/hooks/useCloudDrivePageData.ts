@@ -1,6 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo } from "react";
-import { db } from "@/db/database";
+import { db } from "@my-notes/local-db";
 
 export function useCloudDrivePageData(selectedFolderId: string | null, searchKeyword: string) {
   const folders = useLiveQuery(() => db.drive_folders.orderBy("createdAt").toArray(), []) ?? [];

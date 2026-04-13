@@ -1,0 +1,12 @@
+{
+  "name": "@my-notes/local-db",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@my-notes/shared": "*",
+    "dexie": "^4.0.10"
+  }
+}

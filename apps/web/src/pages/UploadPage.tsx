@@ -3,10 +3,10 @@ import { App, Button, Card, Input, Space, Tabs, Typography, Upload } from "antd"
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
-import { db } from "@/db/database";
+import { db } from "@my-notes/local-db";
+import { needsUpload } from "@my-notes/shared";
+import { pullFromCloud, uploadNote, uploadSnippet } from "@my-notes/sync-client";
 import { buildExportPayload, downloadExportJson, importArchiveMerge } from "@/lib/export-archive";
-import { pullFromCloud } from "@/lib/sync/pull";
-import { needsUpload, uploadNote, uploadSnippet } from "@/lib/upload";
 
 export function UploadPage() {
   const { message } = App.useApp();
@@ -27,7 +27,7 @@ export function UploadPage() {
     try {
       const auth = await login(email, password);
       pushLog("登录成功，开始自动同步云端数据");
-      const { notesApplied, snippetsApplied } = await pullFromCloud(auth.token);
+      const { notesApplied, snippetsApplied } = await pullFromCloud(db, auth.token);
       pushLog(`自动同步完成：笔记 ${notesApplied} 条，短文本 ${snippetsApplied} 条`);
       message.success(`登录成功并完成同步：笔记 ${notesApplied}，短文本 ${snippetsApplied}`);
     } catch (e) {
@@ -49,7 +49,7 @@ export function UploadPage() {
       for (const n of noteList) {
         try {
           const imgs = await db.images.where("noteId").equals(n.id).toArray();
-          const { cloudId } = await uploadNote(token, n, imgs);
+          const { cloudId } = await uploadNote(db, token, n, imgs);
           await db.notes.update(n.id, { syncStatus: "synced", cloudId });
           pushLog(`笔记已上传: ${n.title || n.id} -> ${cloudId}`);
         } catch (e) {
@@ -61,7 +61,7 @@ export function UploadPage() {
       const snipList = (snippets ?? []).filter((s) => needsUpload(s.syncStatus));
       for (const s of snipList) {
         try {
-          const { cloudId } = await uploadSnippet(token, s);
+          const { cloudId } = await uploadSnippet(db, token, s);
           await db.snippets.update(s.id, { syncStatus: "synced", cloudId });
           pushLog(`短文本已上传: ${s.sourceDomain} / ${s.id} -> ${cloudId}`);
         } catch (e) {
@@ -82,7 +82,7 @@ export function UploadPage() {
     }
     setBusy(true);
     try {
-      const { notesApplied, snippetsApplied } = await pullFromCloud(token);
+      const { notesApplied, snippetsApplied } = await pullFromCloud(db, token);
       pushLog(`拉取完成：合并笔记 ${notesApplied} 条，短文本 ${snippetsApplied} 条`);
       message.success(`拉取完成：笔记 ${notesApplied}，短文本 ${snippetsApplied}`);
     } catch (e) {

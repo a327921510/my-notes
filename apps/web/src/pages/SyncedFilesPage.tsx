@@ -4,7 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
 import { deleteCloudNote, deleteCloudSnippet } from "@/lib/cloud-api";
-import { db } from "@/db/database";
+import { db } from "@my-notes/local-db";
 
 type Row =
   | { key: string; kind: "note"; title: string; id: string; cloudId?: string; updatedAt: number }

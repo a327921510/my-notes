@@ -6,7 +6,7 @@ import type {
   SiteSpaceRecord,
   SnippetRecord,
 } from "@my-notes/shared";
-import { db } from "@/db/database";
+import { db } from "@my-notes/local-db";
 
 export const EXPORT_VERSION = 1 as const;
 

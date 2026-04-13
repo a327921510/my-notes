@@ -4,6 +4,9 @@ import { defineConfig } from "vite";
 import { copyFileSync, mkdirSync } from "node:fs";
 
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_API_BASE": JSON.stringify(process.env.VITE_API_BASE ?? "http://127.0.0.1:3001"),
+  },
   plugins: [
     react(),
     {
@@ -21,6 +24,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@my-notes/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
+      "@my-notes/local-db": path.resolve(__dirname, "../../packages/local-db/src/index.ts"),
+      "@my-notes/sync-client": path.resolve(__dirname, "../../packages/sync-client/src/index.ts"),
     },
   },
   build: {

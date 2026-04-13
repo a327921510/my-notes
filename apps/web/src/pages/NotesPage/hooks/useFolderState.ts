@@ -1,8 +1,8 @@
 import { App } from "antd";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useMemo } from "react";
-import { db } from "@/db/database";
-import { createId } from "@/lib/id";
+import { db } from "@my-notes/local-db";
+import { createId } from "@my-notes/shared";
 
 export default function useFolderState() {
   const { message } = App.useApp();

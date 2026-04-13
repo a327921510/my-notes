@@ -1,7 +1,7 @@
 import { App, FloatButton, Splitter } from "antd";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/auth/AuthContext";
-import { db } from "@/db/database";
+import { db } from "@my-notes/local-db";
 import { CloudDriveDetailPanel } from "./components/CloudDriveDetailPanel";
 import { CloudDriveListPanel } from "./components/CloudDriveListPanel";
 import { SyncPanel } from "./components/SyncPanel";

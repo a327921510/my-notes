@@ -1,6 +1,6 @@
 {
   "name": "@my-notes/web",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
+    "@my-notes/local-db": "*",
     "@my-notes/shared": "*",
+    "@my-notes/sync-client": "*",
     "antd": "^6.3.5",
     "dexie": "^4.0.10",
     "dexie-react-hooks": "^1.1.7",

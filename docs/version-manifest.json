@@ -1,6 +1,6 @@
 {
-  "currentVersion": "0.2.0",
-  "previousVersion": "0.1.0",
+  "currentVersion": "0.3.0",
+  "previousVersion": "0.2.0",
   "versionSource": "根目录 package.json 的 version 字段为工程版本号的唯一来源；发布新版本时请同步更新本文件。",
   "documents": [
     {

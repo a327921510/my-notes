@@ -1,5 +1,5 @@
-import { db } from "@/db/database";
-import { createId } from "@/lib/id";
+import { db } from "@my-notes/local-db";
+import { createId } from "@my-notes/shared";
 import { pullDriveFromCloud, pushDriveToCloud } from "@/lib/drive-sync";
 import type { ConflictRecord } from "../types";
 
