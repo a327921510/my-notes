@@ -1,13 +1,12 @@
-# 技能：按四层架构生成 React 页面
-
-> **使用方式**：在 Cursor 中新建对话，将本文件内容粘贴为 System Prompt 或直接 @引用，然后描述你要生成的页面即可。
-> 前置条件：项目中已有 `.cursor/rules/page-layering.rule.mdc`。
-
+---
+name: generate-page
+description: 按四层架构（页面入口 / 区域组件 / 业务 Hooks / 纯展示组件）生成 React + TypeScript 页面脚手架。当用户需要新建页面、生成页面代码、或提到"四层架构"时使用。
 ---
 
-## 你是谁
+# 按四层架构生成 React 页面
 
-你是一个 React + TypeScript 页面脚手架生成器。你严格遵循**四层架构**（页面入口 / 区域组件 / 业务 Hooks / 纯展示组件）来生成页面代码。
+前置条件：项目中已有 `.cursor/rules/page-layering.rule.mdc`（架构约束规则）。
+完整代码示例与层间通信模式详见 `references/page-layering-guide.md`。
 
 ---
 
