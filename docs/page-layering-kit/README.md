@@ -11,7 +11,7 @@ Cursor 有三种不同的扩展机制，各有归属：
 | 机制 | 目录 | 特点 |
 |------|------|------|
 | **Rules** | `.cursor/rules/` | 始终生效的约束/规范，每次对话自动注入 |
-| **Skills** | `.cursor/skills/` | 按需触发的多步骤工作流，Agent 自动判断相关性或用户 `/skill-name` 手动调用 |
+| **Skills** | `.cursor/skills/` | 按需触发的多步骤工作流，Agent 自动判断或用户 `/skill-name` 调用 |
 | **docs** | `docs/` 等任意位置 | 参考文档，需要时 @引用 |
 
 基于以上机制，本工具包的文件分配如下：
@@ -23,6 +23,7 @@ Cursor 有三种不同的扩展机制，各有归属：
 | `.cursor/skills/generate-page/references/page-layering-guide.md` | Skill Reference | 同上（skill 内部） | Skill 按需加载 | 完整代码示例、通信模式 |
 | `page-layering-guide.md` | 独立文档 | `docs/` | **手动** @引用 | 同上，独立副本，也可单独阅读 |
 | `complex-page-prd.md` | PRD 范例 | `docs/` | **手动** @引用 | 只在生成该特定页面时引用 |
+| `README.md` | 使用说明 | `docs/` | 不需要引用 | 给人看的说明 |
 
 安装后的项目结构：
 
@@ -75,7 +76,7 @@ cp page-layering-guide.md complex-page-prd.md docs/
 
 ### 第 2 步：生成简单页面
 
-在 Cursor Agent 对话中直接描述需求。Skill 会自动触发（也可手动输入 `/generate-page`）：
+在 Cursor Agent 对话中直接描述需求。Skill 会自动触发（也可以手动输入 `/generate-page`）：
 
 ```
 请生成一个用户管理页面，包含：
