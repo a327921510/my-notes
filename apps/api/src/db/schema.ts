@@ -1,4 +1,16 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+export const users = sqliteTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    emailNormalized: text("email_normalized").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("idx_users_email_normalized").on(t.emailNormalized)],
+);
 
 export const notes = sqliteTable("notes", {
   cloudId: text("cloud_id").primaryKey(),

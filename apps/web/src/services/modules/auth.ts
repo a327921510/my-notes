@@ -15,4 +15,7 @@ type LoginResult = {
 export const authApi = {
   login: (data: LoginParams) =>
     request.post<LoginResult>("/auth/login", data),
+
+  register: (data: LoginParams) =>
+    request.post<LoginResult>("/auth/register", data),
 };

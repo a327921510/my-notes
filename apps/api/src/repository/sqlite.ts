@@ -12,6 +12,7 @@ import type {
   StoredSite,
   StoredSiteItem,
   StoredSnippet,
+  StoredUser,
 } from "./types.js";
 
 export function createSqliteRepository(
@@ -21,6 +22,28 @@ export function createSqliteRepository(
   runMigrations(sqlite);
 
   return {
+    /* ── Users ───────────────────────────────────────────────── */
+    findUserByEmailNormalized(emailNormalized) {
+      const row = db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.emailNormalized, emailNormalized))
+        .get();
+      return row ? toUser(row) : undefined;
+    },
+
+    createUser(user) {
+      db.insert(schema.users)
+        .values({
+          id: user.id,
+          email: user.email,
+          emailNormalized: user.emailNormalized,
+          passwordHash: user.passwordHash,
+          createdAt: user.createdAt,
+        })
+        .run();
+    },
+
     /* ── Notes ──────────────────────────────────────────────── */
     getNoteByCloudId(cloudId) {
       const row = db
@@ -382,6 +405,16 @@ export function createSqliteRepository(
 
 function runMigrations(sqlite: Database.Database) {
   sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id                TEXT PRIMARY KEY,
+      email             TEXT NOT NULL,
+      email_normalized  TEXT NOT NULL,
+      password_hash     TEXT NOT NULL,
+      created_at        INTEGER NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_normalized ON users(email_normalized);
+
     CREATE TABLE IF NOT EXISTS notes (
       cloud_id        TEXT PRIMARY KEY,
       user_id         TEXT NOT NULL,
@@ -467,6 +500,16 @@ function runMigrations(sqlite: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_drive_folders_user_id ON drive_folders(user_id);
     CREATE INDEX IF NOT EXISTS idx_drive_files_user_id ON drive_files(user_id);
   `);
+}
+
+function toUser(row: typeof schema.users.$inferSelect): StoredUser {
+  return {
+    id: row.id,
+    email: row.email,
+    emailNormalized: row.emailNormalized,
+    passwordHash: row.passwordHash,
+    createdAt: row.createdAt,
+  };
 }
 
 type NoteRow = typeof schema.notes.$inferSelect;

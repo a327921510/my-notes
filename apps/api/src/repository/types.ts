@@ -1,3 +1,11 @@
+export type StoredUser = {
+  id: string;
+  email: string;
+  emailNormalized: string;
+  passwordHash: string;
+  createdAt: number;
+};
+
 export type StoredNoteImage = {
   clientImageId: string;
   storageId: string;
@@ -73,6 +81,10 @@ export type StoredDriveFile = {
  * Implement this for SQLite, PostgreSQL, or any other backend.
  */
 export type Repository = {
+  /* ── Users (auth) ──────────────────────────────────────────── */
+  findUserByEmailNormalized(emailNormalized: string): StoredUser | undefined;
+  createUser(user: StoredUser): void;
+
   /* ── Notes ─────────────────────────────────────────────────── */
   getNoteByCloudId(cloudId: string): StoredNote | undefined;
   listNotesByUser(userId: string): StoredNote[];
