@@ -17,10 +17,7 @@ const { Header, Content } = Layout;
 const NAV_ITEMS = [
   { key: "/", label: "笔记区", icon: <FileTextOutlined /> },
   { key: "/sites", label: "站点信息区", icon: <GlobalOutlined /> },
-  { key: "/synced", label: "已同步", icon: <CloudSyncOutlined /> },
-  { key: "/upload", label: "上传中心", icon: <CloudUploadOutlined /> },
   { key: "/cloud-drive", label: "云盘", icon: <FolderOpenOutlined /> },
-  { key: "/layering-demo", label: "分层范例", icon: <AppstoreOutlined /> },
 ] as const;
 
 function pathToMenuKey(pathname: string): string {
