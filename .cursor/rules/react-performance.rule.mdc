@@ -1,0 +1,254 @@
+---
+description: React 渲染性能优化规则（memo / useCallback / useMemo）
+alwaysApply: true
+---
+
+# React 渲染性能规则
+
+## 核心原则
+
+React 默认行为：**父组件重渲染时，所有子组件也会重渲染**，即使 props 没有变化。在列表渲染、复杂表单、多区域联动等场景中，这会导致明显的页面卡顿。
+
+通过合理使用 `React.memo`、`useCallback`、`useMemo` 三个 API，可以跳过不必要的重渲染。
+
+---
+
+## React.memo 使用规则
+
+### 何时必须使用 memo
+
+| 场景 | 原因 |
+|------|------|
+| **纯展示组件**（只依赖 props 渲染） | 父组件状态变化时避免无意义的重渲染 |
+| **列表项组件**（在 `.map()` 中渲染） | 列表数据局部更新时避免所有项都重渲染 |
+| **接收复杂 props 但渲染开销大的组件** | 减少 DOM diff 计算量 |
+| **在高频更新父组件下的子组件** | 如父组件有 `onMouseMove`、`onScroll`、定时器等频繁触发状态更新 |
+
+### 何时不需要 memo
+
+| 场景 | 原因 |
+|------|------|
+| 组件本身很轻量（几个 DOM 节点、无复杂计算） | memo 的浅比较开销可能高于重渲染本身 |
+| 组件的 props 每次都会变（如内联对象/函数） | memo 永远无法命中缓存，反而增加比较开销 |
+| 页面入口组件 | 入口本身就是重渲染的起点 |
+
+### 写法约定
+
+```tsx
+import { memo } from "react";
+
+export type ProjectCardProps = {
+  project: Project;
+  isSelected: boolean;
+  onClick: () => void;
+};
+
+export const ProjectCard = memo(function ProjectCard({
+  project,
+  isSelected,
+  onClick,
+}: ProjectCardProps) {
+  return (
+    <div onClick={onClick}>
+      <h3>{project.name}</h3>
+      {/* ... */}
+    </div>
+  );
+});
+```
+
+**关键要求：**
+
+- `memo()` 内部使用**具名函数**（`memo(function Xxx() {})`），不用匿名箭头函数，确保 React DevTools 中组件名可读
+- Props 类型仍然 `export`，命名为 `<ComponentName>Props`
+- 组件仍然 `export`（通过 `export const`）
+
+### 自定义比较函数
+
+仅在默认浅比较不满足需求时使用（如 props 中有深层对象但只关心部分字段）：
+
+```tsx
+export const HeavyChart = memo(
+  function HeavyChart({ data, config }: HeavyChartProps) {
+    // ...
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.data === nextProps.data &&
+      prevProps.config.type === nextProps.config.type
+    );
+  },
+);
+```
+
+---
+
+## useCallback 使用规则
+
+### 何时必须使用
+
+| 场景 | 说明 |
+|------|------|
+| 回调函数作为 props 传给 `memo` 包裹的子组件 | 避免每次渲染创建新引用导致子组件 memo 失效 |
+| 回调函数作为 `useEffect` 的依赖 | 避免 effect 无限触发 |
+| 回调函数在业务 Hook 中返回给外部使用 | 保持引用稳定，让调用方的 memo/effect 正常工作 |
+
+### 何时不需要
+
+| 场景 | 说明 |
+|------|------|
+| 回调直接绑定到原生 DOM 元素（如 `<button onClick={...}>`） | 原生元素不受 memo 影响 |
+| 子组件没有用 `memo` 包裹 | 子组件无论如何都会重渲染，useCallback 没有意义 |
+| 组件渲染频率很低 | 优化收益微乎其微 |
+
+### 典型模式
+
+```tsx
+// 页面入口：传给 memo 子组件的回调必须 useCallback
+const handleSelect = useCallback((id: string) => {
+  setSelectedId(id);
+}, []);
+
+const handleDelete = useCallback(async (id: string) => {
+  await deleteItem(id);
+  if (selectedId === id) setSelectedId(null);
+}, [deleteItem, selectedId]);
+```
+
+---
+
+## useMemo 使用规则
+
+### 何时必须使用
+
+| 场景 | 说明 |
+|------|------|
+| **计算量大的派生数据**（排序、过滤、聚合大列表） | 避免每次渲染重复计算 |
+| **创建新对象/数组作为 props 传给 memo 子组件** | 避免每次渲染创建新引用导致 memo 失效 |
+| **作为 useEffect 的依赖** | 避免 effect 无限触发 |
+
+### 何时不需要
+
+| 场景 | 说明 |
+|------|------|
+| 简单的值计算（如字符串拼接、布尔判断） | 计算本身比 useMemo 的开销还小 |
+| 结果不传给 memo 子组件且不作为 effect 依赖 | 没有引用稳定性需求 |
+
+### 典型模式
+
+```tsx
+// 列表过滤/排序 — 必须 useMemo
+const filteredItems = useMemo(
+  () => items.filter((item) => item.status === activeStatus),
+  [items, activeStatus],
+);
+
+// 传给子组件的对象 — 必须 useMemo
+const tableColumns = useMemo(() => getColumns(onEdit, onDelete), [onEdit, onDelete]);
+```
+
+---
+
+## memo + useCallback 配合模式
+
+`memo` 和 `useCallback` 必须**成对使用**才有效。只用其中一个，另一个就白费：
+
+```tsx
+// 父组件
+function ParentPage() {
+  const [count, setCount] = useState(0);
+
+  // useCallback 保持引用稳定
+  const handleClick = useCallback(() => {
+    console.log("clicked");
+  }, []);
+
+  return (
+    <>
+      <button onClick={() => setCount((c) => c + 1)}>count: {count}</button>
+      {/* memo 子组件 + useCallback 回调 = count 变化时 ChildCard 不重渲染 */}
+      <ChildCard onClick={handleClick} />
+    </>
+  );
+}
+
+// 子组件用 memo 包裹
+export const ChildCard = memo(function ChildCard({ onClick }: { onClick: () => void }) {
+  return <div onClick={onClick}>I am memoized</div>;
+});
+```
+
+---
+
+## 四层架构中的性能分工
+
+| 层 | memo | useCallback | useMemo |
+|----|------|-------------|---------|
+| 页面入口 | 不需要 | **必须**：传给子组件的所有回调 | **按需**：跨区域派生数据 |
+| 区域组件 | **按需**：当父组件高频更新时 | **必须**：传给内部 memo 子组件的回调 | **按需**：区域内排序/过滤 |
+| 业务 Hook | — | **必须**：返回的所有 action 函数 | **按需**：缓存计算结果 |
+| 纯展示组件 | **必须** | 不需要（无下层子组件） | 不需要（逻辑应在上层） |
+
+---
+
+## 常见性能问题与修正
+
+### 问题 1：内联对象/函数让 memo 失效
+
+```tsx
+// 错误：每次渲染创建新对象，memo 永远无法命中
+<UserCard style={{ marginTop: 8 }} onClick={() => select(user.id)} />
+
+// 正确：常量提取 + useCallback
+const cardStyle = { marginTop: 8 } as const;
+const handleClick = useCallback(() => select(user.id), [select, user.id]);
+<UserCard style={cardStyle} onClick={handleClick} />
+
+// 更好：列表场景中使用 id 回调模式
+const handleClick = useCallback((id: string) => select(id), [select]);
+// 子组件内部调用 onClick(item.id)
+```
+
+### 问题 2：列表项未 memo 导致整体卡顿
+
+```tsx
+// 错误：list 任意项变化 → 所有 ItemCard 重渲染
+{items.map((item) => (
+  <ItemCard key={item.id} item={item} onSelect={() => onSelect(item.id)} />
+))}
+
+// 正确：ItemCard 用 memo 包裹 + 回调用 useCallback
+const handleSelect = useCallback((id: string) => onSelect(id), [onSelect]);
+{items.map((item) => (
+  <MemoizedItemCard key={item.id} item={item} onSelect={handleSelect} />
+))}
+// MemoizedItemCard 内部：onClick={() => onSelect(item.id)}
+```
+
+### 问题 3：频繁 setState 导致无关区域重渲染
+
+```tsx
+// 错误：搜索框 onChange 更新状态 → 整个页面重渲染 → 表格/图表都跟着重渲染
+function Page() {
+  const [search, setSearch] = useState("");
+  return (
+    <>
+      <SearchInput value={search} onChange={setSearch} />
+      <HeavyTable data={data} />   {/* search 变化时不应重渲染 */}
+      <HeavyChart data={chartData} /> {/* search 变化时不应重渲染 */}
+    </>
+  );
+}
+
+// 正确：HeavyTable 和 HeavyChart 用 memo 包裹
+// 传给它们的 props 通过 useMemo/useCallback 保持引用稳定
+```
+
+---
+
+## 禁止事项
+
+- **禁止**在 `memo` 内部使用匿名箭头函数（`memo(() => { ... })`），必须使用具名函数
+- **禁止**对所有组件无脑加 `memo`（先识别性能瓶颈再优化）
+- **禁止**在 `useCallback`/`useMemo` 中遗漏依赖项（依赖项不完整会导致 stale closure bug）
+- **禁止**在列表 `.map()` 中使用内联箭头函数作为 memo 子组件的 props（这会让 memo 失效）

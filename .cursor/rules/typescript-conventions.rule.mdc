@@ -1,0 +1,102 @@
+---
+description: TypeScript 编码规范与项目约定
+alwaysApply: true
+---
+
+# TypeScript 编码规范
+
+## 类型约定
+
+| 约定 | 说明 |
+|------|------|
+| 优先 `type` | 接口继承 / 声明合并场景才用 `interface` |
+| 禁止 `any` | 使用 `unknown` + 类型收窄；万不得已用 `as` 并加注释 |
+| 禁止 `// @ts-ignore` | 用 `// @ts-expect-error` 并注释原因 |
+| 枚举用 const 对象 | `as const` + 类型推导，不用 `enum` |
+
+```typescript
+const Status = {
+  ACTIVE: "active",
+  CLOSED: "closed",
+} as const;
+type Status = (typeof Status)[keyof typeof Status];
+```
+
+## 组件 Props
+
+- 用 `type` 定义，命名为 `<ComponentName>Props`
+- 必须 `export`（方便测试和组合）
+- 与组件同文件，紧跟 import 之后
+
+```tsx
+export type UserCardProps = {
+  user: User;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+};
+
+export function UserCard({ user, isSelected, onSelect }: UserCardProps) {
+  // ...
+}
+```
+
+## 纯展示组件 memo 包裹
+
+纯展示组件（只依赖 props、不调用业务 Hook）**必须用 `memo` 包裹**，避免父组件状态变化时触发无意义的重渲染。`memo()` 内使用具名函数，不用匿名箭头函数：
+
+```tsx
+import { memo } from "react";
+
+export type StatusBadgeProps = {
+  status: "active" | "closed";
+};
+
+export const StatusBadge = memo(function StatusBadge({ status }: StatusBadgeProps) {
+  return <span>{status}</span>;
+});
+```
+
+> 详见 `react-performance.rule.mdc`。
+
+## 命名规范
+
+| 类型 | 风格 | 示例 |
+|------|------|------|
+| 组件文件 | PascalCase.tsx | `UserListPanel.tsx` |
+| Hook 文件 | camelCase.ts | `useUsers.ts` |
+| 工具/服务文件 | camelCase.ts | `request.ts` |
+| CSS Modules | PascalCase.module.less | `UserTable.module.less` |
+| 组件名 | PascalCase | `function UserListPanel()` |
+| Hook 名 | use + PascalCase | `function useUsers()` |
+| 变量/函数 | camelCase | `const fetchUsers = ...` |
+| 常量 | UPPER_SNAKE_CASE | `const API_BASE_URL = ...` |
+| 类型 | PascalCase | `type UserListParams = ...` |
+| 事件回调 props | on + 动词 | `onSelect`, `onFiltersChange` |
+| 布尔 props | is/has/should 前缀 | `isLoading`, `hasError` |
+
+## 导入顺序
+
+```typescript
+// 1. React
+import { useState, useCallback } from "react";
+
+// 2. 第三方库
+import { Table, Button } from "antd";
+import { useParams } from "react-router-dom";
+
+// 3. 项目绝对路径（@/）
+import { request } from "@/services/request";
+import { useAuthStore } from "@/stores/useAuthStore";
+
+// 4. 页面内相对路径
+import { useUsers } from "./hooks/useUsers";
+import { UserCard } from "./components/UserCard";
+import type { User } from "./types";
+```
+
+## 禁止事项
+
+- **禁止** `export default` 匿名组件（页面入口的 `export default` 必须紧跟命名导出）
+- **禁止** `as any`（用 `unknown` + 类型守卫）
+- **禁止**魔法数字 / 魔法字符串（提取为命名常量）
+- **禁止**在组件中直接 `localStorage.setItem`（使用 `utils/storage.ts` 或 Zustand persist）

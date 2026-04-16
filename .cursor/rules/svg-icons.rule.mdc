@@ -1,0 +1,35 @@
+---
+description: SVG 图标管理规则（vite-plugin-svgr）
+alwaysApply: false
+globs:
+  - "src/assets/icons/**"
+  - "**/*.svg"
+---
+
+# SVG 图标规则
+
+## 存放与命名
+
+- 位置：`src/assets/icons/`
+- 命名：kebab-case — `arrow-left.svg`、`user-avatar.svg`
+
+## 导入方式
+
+通过 `vite-plugin-svgr` 将 SVG 作为 React 组件导入，必须使用 `?react` 后缀：
+
+```tsx
+import ArrowLeftIcon from "@/assets/icons/arrow-left.svg?react";
+
+<ArrowLeftIcon className="h-5 w-5 text-gray-600" />
+```
+
+## SVG 文件规范
+
+- 去除固定的 `fill` / `stroke` 颜色属性，使用 `currentColor` 以支持 CSS 着色
+- 保留 `viewBox` 属性
+- 去除 `width` / `height` 硬编码（通过 CSS class 控制尺寸）
+
+## 与 Ant Design 图标的分工
+
+- 优先使用 `@ant-design/icons`（**v6**，与 `antd@6` 配套）提供的图标
+- 只有自定义图标（产品特有、品牌 logo 等）才放 `assets/icons/`

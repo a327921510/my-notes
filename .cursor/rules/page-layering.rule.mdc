@@ -78,15 +78,25 @@ src/pages/<PageName>/
 
 ```tsx
 // pages/OrderManagement/index.tsx
+import { useCallback, useMemo } from "react";
+
 export function OrderManagementPage() {
   // 1) 调用业务 hooks
   const { orders, filters, setFilters, deleteOrder } = useOrders();
   const { selectedId, select } = useSelection();
 
-  // 2) 派生跨区域数据
-  const selectedOrder = orders.find(o => o.id === selectedId) ?? null;
+  // 2) 派生跨区域数据（useMemo 保持引用稳定）
+  const selectedOrder = useMemo(
+    () => orders.find(o => o.id === selectedId) ?? null,
+    [orders, selectedId],
+  );
 
-  // 3) 编排各区域
+  // 3) 跨区域联动回调（useCallback 防止 memo 子组件重渲染）
+  const handleDelete = useCallback(() => {
+    if (selectedId) deleteOrder(selectedId);
+  }, [selectedId, deleteOrder]);
+
+  // 4) 编排各区域
   return (
     <Layout>
       <Layout.Sider>
@@ -100,7 +110,7 @@ export function OrderManagementPage() {
         />
         <OrderDetailView
           order={selectedOrder}
-          onDelete={() => selectedId && deleteOrder(selectedId)}
+          onDelete={handleDelete}
         />
       </Layout.Content>
     </Layout>
@@ -112,6 +122,8 @@ export function OrderManagementPage() {
 - [ ] 跨区域共享状态是否在此定义？
 - [ ] 是否只做"组合与传递"，没有大段渲染逻辑？
 - [ ] 路由/权限相关逻辑是否在此处理？
+- [ ] 传给子组件的回调是否用 `useCallback` 包裹？
+- [ ] 传给子组件的派生对象/数组是否用 `useMemo` 包裹？
 
 ### 2. 区域组件
 
@@ -181,19 +193,25 @@ export function useOrders() {
 
 ### 4. 纯展示组件
 
+纯展示组件**必须用 `memo` 包裹**，避免父组件状态变化时触发无意义的重渲染。
+
 ```tsx
 // pages/OrderManagement/components/OrderStatusBadge.tsx
-type Props = { status: OrderStatus };
+import { memo } from "react";
 
-export function OrderStatusBadge({ status }: Props) {
+export type OrderStatusBadgeProps = { status: OrderStatus };
+
+export const OrderStatusBadge = memo(function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
   const config = STATUS_MAP[status];
   return <Tag color={config.color}>{config.label}</Tag>;
-}
+});
 ```
 
 **纯展示检查清单：**
 - [ ] 是否只使用 props（不调用 hooks、不访问全局 store）？
 - [ ] 是否可以通过 Storybook / 单元测试独立渲染？
+- [ ] 是否用 `memo` 包裹？（纯展示组件必须 memo）
+- [ ] 父组件传入的回调是否用 `useCallback` 包裹？（否则 memo 无效）
 
 ---
 
@@ -218,6 +236,9 @@ export function OrderStatusBadge({ status }: Props) {
 | 多个组件各自写一套相同的 CRUD | 逻辑重复，改一处漏一处 | 统一到业务 Hook |
 | 为减少 props 透传引入全局 store | 隐式耦合，页面间互相影响 | 保持 props 传递，或用页面级 Context |
 | Hook 内部操作 DOM（`document.querySelector`） | Hook 应与 UI 解耦 | DOM 操作放到组件层的 ref/effect |
+| 纯展示组件没有用 `memo` 包裹 | 父组件任意状态变化都导致重渲染 | 纯展示组件统一用 `memo()` 包裹 |
+| 传给 memo 子组件的回调未用 `useCallback` | memo 失效，每次渲染回调引用都变 | 入口/区域组件中用 `useCallback` 包裹回调 |
+| 在 `.map()` 中写内联箭头函数传给 memo 子组件 | 每个列表项的回调引用都是新的 | 回调接收 id 参数，由子组件内部调用 `onClick(item.id)` |
 
 ---
 

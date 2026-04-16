@@ -1,0 +1,59 @@
+---
+description: React Router DOM v6 路由规则
+alwaysApply: true
+---
+
+# 路由规则
+
+## 路由模式
+
+使用 React Router DOM v6 的 Data Router（`createBrowserRouter`）。
+
+路由表定义在 `src/router/routes.tsx`，统一注册。
+
+## 约定
+
+| 约定 | 说明 |
+|------|------|
+| 路由路径 | kebab-case：`/dashboard`、`/user-management` |
+| 页面懒加载 | 所有页面组件使用 `React.lazy(() => import(...))` |
+| 页面导出 | 命名导出 `export function XxxPage()` + 默认导出 `export default XxxPage` |
+| 嵌套路由 | 布局组件使用 `<Outlet />` 渲染子路由 |
+| 全局 loading | `<Suspense>` 包裹在 `AppRouter` 中，统一 fallback |
+
+## 页面入口导出模板
+
+```tsx
+// src/pages/UserManagement/index.tsx
+export function UserManagementPage() {
+  // ...
+}
+
+export default UserManagementPage;
+```
+
+## 路由注册模板
+
+```tsx
+// src/router/routes.tsx
+const UserManagement = lazy(() => import("@/pages/UserManagement"));
+
+export const routes: RouteObject[] = [
+  {
+    path: "/",
+    element: <MainLayout />,
+    children: [
+      { path: "users", element: <UserManagement /> },
+    ],
+  },
+];
+```
+
+## 状态存储位置选型
+
+| 状态类型 | 存储位置 |
+|---------|---------|
+| 页面标识、资源 ID | 路由参数（`/orders/:id`） |
+| 筛选、分页（需要可分享 URL） | searchParams（`?page=2&status=active`） |
+| 临时 UI 状态（弹窗、选中态） | 组件 state |
+| 跨页面持久数据（用户信息） | Zustand store |

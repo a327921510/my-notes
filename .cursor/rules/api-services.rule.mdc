@@ -1,0 +1,66 @@
+---
+description: Axios 请求层与 API 模块组织规则
+alwaysApply: true
+---
+
+# API 请求层规则
+
+## 架构
+
+```
+src/services/
+├── request.ts           # Axios 实例 + 拦截器（全局唯一）
+└── modules/             # 按业务域拆分的 API 模块
+    ├── user.ts
+    ├── order.ts
+    └── ...
+```
+
+## 核心约定
+
+1. **统一使用 `request` 实例**：禁止直接 `import axios from "axios"` 后发请求
+2. **API 函数按业务域组织**：每个文件导出一个 `xxxApi` 对象
+3. **入参和返回值必须有类型**：API 函数必须标注请求参数类型和响应数据类型
+4. **错误统一在拦截器处理**：业务 Hook 中的 `catch` 只处理特殊逻辑（如乐观更新回滚）
+
+## API 模块模板
+
+```typescript
+// src/services/modules/<domain>.ts
+import { request } from "../request";
+
+export type XxxListParams = {
+  page: number;
+  pageSize: number;
+  keyword?: string;
+};
+
+export type XxxItem = {
+  id: string;
+  name: string;
+  // ...
+};
+
+export const xxxApi = {
+  getList: (params: XxxListParams) =>
+    request.get<PaginatedResult<XxxItem>>("/xxx", { params }),
+
+  getById: (id: string) =>
+    request.get<XxxItem>(`/xxx/${id}`),
+
+  create: (data: Omit<XxxItem, "id">) =>
+    request.post<XxxItem>("/xxx", data),
+
+  update: (id: string, data: Partial<XxxItem>) =>
+    request.patch<XxxItem>(`/xxx/${id}`, data),
+
+  delete: (id: string) =>
+    request.delete(`/xxx/${id}`),
+};
+```
+
+## 禁止事项
+
+- **禁止**在组件或 Hook 中直接写 `fetch()` 或 `axios.get()`
+- **禁止**在 API 模块中编写业务逻辑（数据转换、缓存等放到业务 Hook 中）
+- **禁止**在 API 模块中使用 React Hook

@@ -1,0 +1,68 @@
+---
+description: Zustand 全局状态管理规则
+alwaysApply: true
+---
+
+# Zustand Store 规则
+
+## 适用场景
+
+Zustand Store 只用于**跨页面共享**的全局状态：
+
+| 适合放 Store | 不适合放 Store |
+|-------------|--------------|
+| 用户认证信息（token、用户资料） | 单页面的列表数据、筛选条件 |
+| 全局配置（主题、语言、侧边栏展开） | 表单状态 |
+| 全局通知/消息 | 临时 UI 状态（弹窗、hover） |
+
+页面内部状态 → 页面级业务 Hook + useState。
+
+## 文件规范
+
+- 位置：`src/stores/use<Domain>Store.ts`
+- 一个 store 一个文件，按业务域拆分
+- 命名：`use<Domain>Store`
+
+## 代码规范
+
+```typescript
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
+type XxxState = {
+  // 状态
+  data: string | null;
+  // 同步 action
+  setData: (val: string) => void;
+  clear: () => void;
+};
+
+export const useXxxStore = create<XxxState>()(
+  persist(
+    (set) => ({
+      data: null,
+      setData: (val) => set({ data: val }),
+      clear: () => set({ data: null }),
+    }),
+    { name: "xxx-v1" },  // 持久化 key 带版本号
+  ),
+);
+```
+
+## 使用规范
+
+```typescript
+// 正确：selector 精确订阅
+const data = useXxxStore((s) => s.data);
+const setData = useXxxStore((s) => s.setData);
+
+// 错误：整体订阅会导致 store 任意字段变化都触发重渲染
+// const { data, setData } = useXxxStore();
+```
+
+## 禁止事项
+
+- **禁止**在 store 中写异步操作（API 调用放业务 Hook）
+- **禁止**把页面级数据塞进全局 store（会导致页面间隐式耦合）
+- **禁止**整体解构 store（必须用 selector）
+- **禁止**在 store 中 import React 组件
