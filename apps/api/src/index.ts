@@ -7,6 +7,9 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { initRepository } from "./repository/index.js";
+import type { Repository, StoredNote, StoredNoteImage } from "./repository/index.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_ROOT = path.join(__dirname, "..", "uploads");
 
@@ -15,92 +18,44 @@ interface UserPayload {
   email: string;
 }
 
-interface NoteImage {
-  clientImageId: string;
-  storageId: string;
-  checksum?: string;
-}
-
-interface StoredNote {
-  userId: string;
-  clientNoteId: string;
-  cloudId: string;
-  title: string;
-  contentText: string;
-  updatedAt: number;
-  images: NoteImage[];
-}
-
-interface StoredSite {
-  userId: string;
-  clientSiteId: string;
-  cloudId: string;
-  name: string;
-  address: string;
-  version: number;
-  updatedAt: number;
-}
-
-interface StoredSiteItem {
-  userId: string;
-  clientItemId: string;
-  clientSiteId: string;
-  cloudId: string;
-  name: string;
-  content: string;
-  updatedAt: number;
-}
-
-interface StoredDriveFolder {
-  userId: string;
-  clientFolderId: string;
-  cloudId: string;
-  name: string;
-  parentId: string | null;
-  path?: string;
-  updatedAt: number;
-}
-
-interface StoredDriveFile {
-  userId: string;
-  clientFileId: string;
-  clientFolderId: string;
-  cloudId: string;
-  name: string;
-  mimeType?: string;
-  sizeBytes: number;
-  checksum?: string;
-  storageId: string;
-  updatedAt: number;
-}
-
-async function saveUserFile(userId: string, buffer: Buffer, ext: string): Promise<string> {
+async function saveUserFile(
+  repo: Repository,
+  userId: string,
+  buffer: Buffer,
+  ext: string,
+): Promise<string> {
   const name = `${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
   const dest = path.join(UPLOAD_ROOT, name);
   await writeFile(dest, buffer);
-  fileOwners.set(name, userId);
+  repo.setFileOwner(name, userId);
   return name;
 }
 
-const fileOwners = new Map<string, string>();
-
-async function removeNoteFiles(note: StoredNote | undefined): Promise<void> {
+async function removeNoteFiles(
+  repo: Repository,
+  note: StoredNote | undefined,
+): Promise<void> {
   if (!note) return;
   for (const img of note.images) {
     const p = path.join(UPLOAD_ROOT, img.storageId);
     await unlink(p).catch(() => {});
-    fileOwners.delete(img.storageId);
+    repo.deleteFileOwner(img.storageId);
   }
 }
 
-async function removeStoredFile(storageId: string): Promise<void> {
+async function removeStoredFile(
+  repo: Repository,
+  storageId: string,
+): Promise<void> {
   const p = path.join(UPLOAD_ROOT, storageId);
   await unlink(p).catch(() => {});
-  fileOwners.delete(storageId);
+  repo.deleteFileOwner(storageId);
 }
 
 async function main() {
   await mkdir(UPLOAD_ROOT, { recursive: true });
+
+  const repo = await initRepository();
 
   const app = Fastify({ logger: true });
 
@@ -108,25 +63,9 @@ async function main() {
   await app.register(jwt, { secret: process.env.JWT_SECRET ?? "dev-my-notes-secret-change-me" });
   await app.register(multipart, { limits: { fileSize: 8 * 1024 * 1024 } });
 
-  const notes = new Map<string, StoredNote>();
-  const sites = new Map<string, StoredSite>();
-  const siteItems = new Map<string, StoredSiteItem>();
-  const driveFolders = new Map<string, StoredDriveFolder>();
-  const driveFiles = new Map<string, StoredDriveFile>();
-
-  const snippets = new Map<
-    string,
-    {
-      userId: string;
-      clientSnippetId: string;
-      cloudId: string;
-      type: string;
-      content: string;
-      sourceDomain: string;
-      sourceUrl?: string;
-      updatedAt: number;
-    }
-  >();
+  app.addHook("onClose", () => {
+    repo.close();
+  });
 
   app.post<{ Body: { email: string; password: string } }>("/api/auth/login", async (req, reply) => {
     const { email, password } = req.body ?? {};
@@ -166,7 +105,7 @@ async function main() {
     if (!data) return reply.status(400).send({ message: "缺少文件" });
     const ext = path.extname(data.filename || "") || ".bin";
     const buffer = await data.toBuffer();
-    const storageId = await saveUserFile(user.sub, buffer, ext);
+    const storageId = await saveUserFile(repo, user.sub, buffer, ext);
     return { storageId };
   });
 
@@ -206,22 +145,22 @@ async function main() {
     }
 
     const cloudId = `cn_${meta.clientNoteId}`;
-    const existing = notes.get(cloudId);
+    const existing = repo.getNoteByCloudId(cloudId);
     if (existing && existing.userId !== user.sub) {
       return reply.status(403).send({ message: "无权覆盖该笔记" });
     }
     if (existing?.userId === user.sub) {
-      await removeNoteFiles(existing);
+      await removeNoteFiles(repo, existing);
     }
 
-    const imagePayload: NoteImage[] = [];
+    const imagePayload: StoredNoteImage[] = [];
     for (const img of meta.images ?? []) {
       const buf = fileBuffers.get(img.clientImageId);
       if (!buf) {
         return reply.status(400).send({ message: `缺少图片二进制: ${img.clientImageId}` });
       }
       const ext = ".bin";
-      const storageId = await saveUserFile(user.sub, buf, ext);
+      const storageId = await saveUserFile(repo, user.sub, buf, ext);
       imagePayload.push({
         clientImageId: img.clientImageId,
         storageId,
@@ -229,7 +168,7 @@ async function main() {
       });
     }
 
-    notes.set(cloudId, {
+    repo.upsertNote({
       userId: user.sub,
       clientNoteId: meta.clientNoteId,
       cloudId,
@@ -247,16 +186,14 @@ async function main() {
 
   app.get("/api/notes", async (req) => {
     const user = req.user as UserPayload;
-    const items = [...notes.values()]
-      .filter((n) => n.userId === user.sub)
-      .map((n) => ({
-        cloudId: n.cloudId,
-        clientNoteId: n.clientNoteId,
-        title: n.title,
-        contentText: n.contentText,
-        updatedAt: n.updatedAt,
-        images: n.images,
-      }));
+    const items = repo.listNotesByUser(user.sub).map((n) => ({
+      cloudId: n.cloudId,
+      clientNoteId: n.clientNoteId,
+      title: n.title,
+      contentText: n.contentText,
+      updatedAt: n.updatedAt,
+      images: n.images,
+    }));
     return { items };
   });
 
@@ -264,12 +201,12 @@ async function main() {
     const user = req.user as UserPayload;
     const { clientNoteId } = req.params;
     const cloudId = `cn_${clientNoteId}`;
-    const n = notes.get(cloudId);
+    const n = repo.getNoteByCloudId(cloudId);
     if (!n || n.userId !== user.sub) {
       return reply.status(404).send({ message: "未找到云端笔记" });
     }
-    await removeNoteFiles(n);
-    notes.delete(cloudId);
+    await removeNoteFiles(repo, n);
+    repo.deleteNote(cloudId);
     return { ok: true };
   });
 
@@ -279,7 +216,7 @@ async function main() {
     if (!/^[a-zA-Z0-9_.-]+$/.test(storageId)) {
       return reply.status(400).send({ message: "非法 storageId" });
     }
-    const owner = fileOwners.get(storageId);
+    const owner = repo.getFileOwner(storageId);
     if (!owner || owner !== user.sub) {
       return reply.status(404).send({ message: "文件不存在" });
     }
@@ -300,7 +237,7 @@ async function main() {
     const user = req.user as UserPayload;
     const b = req.body;
     const cloudId = `cs_${b.clientSnippetId}`;
-    snippets.set(cloudId, {
+    repo.upsertSnippet({
       userId: user.sub,
       clientSnippetId: b.clientSnippetId,
       cloudId,
@@ -315,17 +252,15 @@ async function main() {
 
   app.get("/api/snippets", async (req) => {
     const user = req.user as UserPayload;
-    const items = [...snippets.values()]
-      .filter((s) => s.userId === user.sub)
-      .map((s) => ({
-        cloudId: s.cloudId,
-        clientSnippetId: s.clientSnippetId,
-        type: s.type,
-        content: s.content,
-        sourceDomain: s.sourceDomain,
-        sourceUrl: s.sourceUrl,
-        updatedAt: s.updatedAt,
-      }));
+    const items = repo.listSnippetsByUser(user.sub).map((s) => ({
+      cloudId: s.cloudId,
+      clientSnippetId: s.clientSnippetId,
+      type: s.type,
+      content: s.content,
+      sourceDomain: s.sourceDomain,
+      sourceUrl: s.sourceUrl,
+      updatedAt: s.updatedAt,
+    }));
     return { items };
   });
 
@@ -333,11 +268,11 @@ async function main() {
     const user = req.user as UserPayload;
     const { clientSnippetId } = req.params;
     const cloudId = `cs_${clientSnippetId}`;
-    const s = snippets.get(cloudId);
+    const s = repo.getSnippetByCloudId(cloudId);
     if (!s || s.userId !== user.sub) {
       return reply.status(404).send({ message: "未找到云端短文本" });
     }
-    snippets.delete(cloudId);
+    repo.deleteSnippet(cloudId);
     return { ok: true };
   });
 
@@ -357,18 +292,12 @@ async function main() {
     if (!nextName || !nextAddress) {
       return reply.status(400).send({ message: "站点名称和地址不能为空" });
     }
-    const duplicated = [...sites.values()].find(
-      (s) =>
-        s.userId === user.sub &&
-        s.clientSiteId !== b.clientSiteId &&
-        s.name.trim().toLowerCase() === nextName.toLowerCase() &&
-        s.address.trim().toLowerCase() === nextAddress.toLowerCase(),
-    );
+    const duplicated = repo.findDuplicateSite(user.sub, b.clientSiteId, nextName, nextAddress);
     if (duplicated) {
       return reply.status(409).send({ message: "站点名称和地址组合已存在" });
     }
     const cloudId = `st_${b.clientSiteId}`;
-    sites.set(cloudId, {
+    repo.upsertSite({
       userId: user.sub,
       clientSiteId: b.clientSiteId,
       cloudId,
@@ -398,25 +327,19 @@ async function main() {
     if (!nextName || !nextAddress) {
       return reply.status(400).send({ message: "站点名称和地址不能为空" });
     }
-    const duplicated = [...sites.values()].find(
-      (s) =>
-        s.userId === user.sub &&
-        s.clientSiteId !== b.clientSiteId &&
-        s.name.trim().toLowerCase() === nextName.toLowerCase() &&
-        s.address.trim().toLowerCase() === nextAddress.toLowerCase(),
-    );
+    const duplicated = repo.findDuplicateSite(user.sub, b.clientSiteId, nextName, nextAddress);
     if (duplicated) {
       return reply.status(409).send({ message: "站点名称和地址组合已存在" });
     }
 
     const cloudId = `st_${b.clientSiteId}`;
-    const existing = sites.get(cloudId);
+    const existing = repo.getSiteByCloudId(cloudId);
     const remoteVersion = existing?.version ?? 1;
     if (Number(b.expectedVersion ?? 1) !== remoteVersion) {
       return reply.status(409).send({ message: "版本不一致，请先拉取云端数据" });
     }
     const nextVersion = remoteVersion + 1;
-    sites.set(cloudId, {
+    repo.upsertSite({
       userId: user.sub,
       clientSiteId: b.clientSiteId,
       cloudId,
@@ -426,15 +349,11 @@ async function main() {
       updatedAt: b.updatedAt ?? Date.now(),
     });
 
-    for (const [key, value] of [...siteItems.entries()]) {
-      if (value.userId === user.sub && value.clientSiteId === b.clientSiteId) {
-        siteItems.delete(key);
-      }
-    }
+    repo.deleteSiteItemsByUserAndSite(user.sub, b.clientSiteId);
     for (const item of b.items ?? []) {
       if (!item?.clientItemId) continue;
       const itemCloudId = `si_${item.clientItemId}`;
-      siteItems.set(itemCloudId, {
+      repo.upsertSiteItem({
         userId: user.sub,
         clientItemId: item.clientItemId,
         clientSiteId: b.clientSiteId,
@@ -449,16 +368,14 @@ async function main() {
 
   app.get("/api/sites", async (req) => {
     const user = req.user as UserPayload;
-    const items = [...sites.values()]
-      .filter((s) => s.userId === user.sub)
-      .map((s) => ({
-        cloudId: s.cloudId,
-        clientSiteId: s.clientSiteId,
-        name: s.name,
-        address: s.address,
-        version: s.version ?? 1,
-        updatedAt: s.updatedAt,
-      }));
+    const items = repo.listSitesByUser(user.sub).map((s) => ({
+      cloudId: s.cloudId,
+      clientSiteId: s.clientSiteId,
+      name: s.name,
+      address: s.address,
+      version: s.version ?? 1,
+      updatedAt: s.updatedAt,
+    }));
     return { items };
   });
 
@@ -466,16 +383,12 @@ async function main() {
     const user = req.user as UserPayload;
     const { clientSiteId } = req.params;
     const cloudId = `st_${clientSiteId}`;
-    const s = sites.get(cloudId);
+    const s = repo.getSiteByCloudId(cloudId);
     if (!s || s.userId !== user.sub) {
       return reply.status(404).send({ message: "未找到云端站点" });
     }
-    sites.delete(cloudId);
-    for (const [key, value] of [...siteItems.entries()]) {
-      if (value.userId === user.sub && value.clientSiteId === clientSiteId) {
-        siteItems.delete(key);
-      }
-    }
+    repo.deleteSite(cloudId);
+    repo.deleteSiteItemsByUserAndSite(user.sub, clientSiteId);
     return { ok: true };
   });
 
@@ -493,7 +406,7 @@ async function main() {
     if (!b?.clientItemId) return reply.status(400).send({ message: "缺少 clientItemId" });
     if (!b?.clientSiteId) return reply.status(400).send({ message: "缺少 clientSiteId" });
     const cloudId = `si_${b.clientItemId}`;
-    siteItems.set(cloudId, {
+    repo.upsertSiteItem({
       userId: user.sub,
       clientItemId: b.clientItemId,
       clientSiteId: b.clientSiteId,
@@ -507,16 +420,14 @@ async function main() {
 
   app.get("/api/site-items", async (req) => {
     const user = req.user as UserPayload;
-    const items = [...siteItems.values()]
-      .filter((s) => s.userId === user.sub)
-      .map((s) => ({
-        cloudId: s.cloudId,
-        clientItemId: s.clientItemId,
-        clientSiteId: s.clientSiteId,
-        name: s.name,
-        content: s.content,
-        updatedAt: s.updatedAt,
-      }));
+    const items = repo.listSiteItemsByUser(user.sub).map((s) => ({
+      cloudId: s.cloudId,
+      clientItemId: s.clientItemId,
+      clientSiteId: s.clientSiteId,
+      name: s.name,
+      content: s.content,
+      updatedAt: s.updatedAt,
+    }));
     return { items };
   });
 
@@ -524,11 +435,11 @@ async function main() {
     const user = req.user as UserPayload;
     const { clientItemId } = req.params;
     const cloudId = `si_${clientItemId}`;
-    const it = siteItems.get(cloudId);
+    const it = repo.getSiteItemByCloudId(cloudId);
     if (!it || it.userId !== user.sub) {
       return reply.status(404).send({ message: "未找到云端站点条目" });
     }
-    siteItems.delete(cloudId);
+    repo.deleteSiteItem(cloudId);
     return { ok: true };
   });
 
@@ -547,7 +458,7 @@ async function main() {
     const name = (b.name ?? "").trim();
     if (!name) return reply.status(400).send({ message: "目录名称不能为空" });
     const cloudId = `dfd_${b.clientFolderId}`;
-    driveFolders.set(cloudId, {
+    repo.upsertDriveFolder({
       userId: user.sub,
       clientFolderId: b.clientFolderId,
       cloudId,
@@ -561,16 +472,14 @@ async function main() {
 
   app.get("/api/drive/folders", async (req) => {
     const user = req.user as UserPayload;
-    const items = [...driveFolders.values()]
-      .filter((x) => x.userId === user.sub)
-      .map((x) => ({
-        cloudId: x.cloudId,
-        clientFolderId: x.clientFolderId,
-        name: x.name,
-        parentId: x.parentId,
-        path: x.path,
-        updatedAt: x.updatedAt,
-      }));
+    const items = repo.listDriveFoldersByUser(user.sub).map((x) => ({
+      cloudId: x.cloudId,
+      clientFolderId: x.clientFolderId,
+      name: x.name,
+      parentId: x.parentId,
+      path: x.path,
+      updatedAt: x.updatedAt,
+    }));
     return { items };
   });
 
@@ -611,15 +520,15 @@ async function main() {
     }
 
     const cloudId = `dff_${meta.clientFileId}`;
-    const existing = driveFiles.get(cloudId);
+    const existing = repo.getDriveFileByCloudId(cloudId);
     if (existing && existing.userId !== user.sub) {
       return reply.status(403).send({ message: "无权覆盖该文件" });
     }
     if (existing?.storageId) {
-      await removeStoredFile(existing.storageId);
+      await removeStoredFile(repo, existing.storageId);
     }
-    const storageId = await saveUserFile(user.sub, fileBuffer, fileExt);
-    driveFiles.set(cloudId, {
+    const storageId = await saveUserFile(repo, user.sub, fileBuffer, fileExt);
+    repo.upsertDriveFile({
       userId: user.sub,
       clientFileId: meta.clientFileId,
       clientFolderId: meta.clientFolderId,
@@ -636,26 +545,24 @@ async function main() {
 
   app.get("/api/drive/files", async (req) => {
     const user = req.user as UserPayload;
-    const items = [...driveFiles.values()]
-      .filter((x) => x.userId === user.sub)
-      .map((x) => ({
-        cloudId: x.cloudId,
-        clientFileId: x.clientFileId,
-        clientFolderId: x.clientFolderId,
-        name: x.name,
-        mimeType: x.mimeType,
-        sizeBytes: x.sizeBytes,
-        checksum: x.checksum,
-        storageId: x.storageId,
-        updatedAt: x.updatedAt,
-      }));
+    const items = repo.listDriveFilesByUser(user.sub).map((x) => ({
+      cloudId: x.cloudId,
+      clientFileId: x.clientFileId,
+      clientFolderId: x.clientFolderId,
+      name: x.name,
+      mimeType: x.mimeType,
+      sizeBytes: x.sizeBytes,
+      checksum: x.checksum,
+      storageId: x.storageId,
+      updatedAt: x.updatedAt,
+    }));
     return { items };
   });
 
   app.get<{ Params: { cloudId: string } }>("/api/drive/files/:cloudId/download", async (req, reply) => {
     const user = req.user as UserPayload;
     const cloudId = req.params.cloudId;
-    const file = driveFiles.get(cloudId);
+    const file = repo.getDriveFileByCloudId(cloudId);
     if (!file || file.userId !== user.sub) {
       return reply.status(404).send({ message: "云端文件不存在" });
     }
@@ -668,12 +575,12 @@ async function main() {
     const user = req.user as UserPayload;
     const { clientFileId } = req.params;
     const cloudId = `dff_${clientFileId}`;
-    const file = driveFiles.get(cloudId);
+    const file = repo.getDriveFileByCloudId(cloudId);
     if (!file || file.userId !== user.sub) {
       return reply.status(404).send({ message: "云端文件不存在" });
     }
-    await removeStoredFile(file.storageId);
-    driveFiles.delete(cloudId);
+    await removeStoredFile(repo, file.storageId);
+    repo.deleteDriveFile(cloudId);
     return { ok: true };
   });
 
