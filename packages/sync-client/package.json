@@ -6,7 +6,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
-    "@my-notes/local-db": "*",
-    "@my-notes/shared": "*"
+    "@my-notes/local-db": "workspace:*",
+    "@my-notes/shared": "workspace:*"
   }
 }

@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
-    "@my-notes/local-db": "*",
-    "@my-notes/shared": "*",
-    "@my-notes/sync-client": "*",
+    "@my-notes/local-db": "workspace:*",
+    "@my-notes/shared": "workspace:*",
+    "@my-notes/sync-client": "workspace:*",
     "antd": "^6.3.5",
     "axios": "^1.15.0",
     "dexie": "^4.0.10",
