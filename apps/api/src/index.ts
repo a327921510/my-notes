@@ -7,6 +7,13 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  MIN_PASSWORD_LENGTH,
+  hashPassword,
+  normalizeEmail,
+  userIdFromNormalizedEmail,
+  verifyPassword,
+} from "./auth/credentials.js";
 import { initRepository } from "./repository/index.js";
 import type { Repository, StoredNote, StoredNoteImage } from "./repository/index.js";
 
@@ -67,17 +74,75 @@ async function main() {
     repo.close();
   });
 
-  app.post<{ Body: { email: string; password: string } }>("/api/auth/login", async (req, reply) => {
+  app.post<{ Body: { email: string; password: string } }>("/api/auth/register", async (req, reply) => {
     const { email, password } = req.body ?? {};
-    if (!email || !password) {
+    const trimmedEmail = (email ?? "").trim();
+    if (!trimmedEmail || !password) {
       return reply.status(400).send({ message: "缺少邮箱或密码" });
     }
-    if (process.env.NODE_ENV === "production" && password !== "demo") {
-      return reply.status(401).send({ message: "请使用密码 demo（MVP 演示）" });
+    const emailNormalized = normalizeEmail(trimmedEmail);
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return reply
+        .status(400)
+        .send({ message: `密码至少 ${MIN_PASSWORD_LENGTH} 位` });
     }
-    const userId = `u_${Buffer.from(email).toString("hex").slice(0, 16)}`;
-    const token = await reply.jwtSign({ sub: userId, email } as UserPayload);
-    return { token, user: { id: userId, email } };
+    if (repo.findUserByEmailNormalized(emailNormalized)) {
+      return reply.status(409).send({ message: "该邮箱已注册" });
+    }
+    const userId = userIdFromNormalizedEmail(emailNormalized);
+    const passwordHash = hashPassword(password);
+    const createdAt = Date.now();
+    try {
+      repo.createUser({
+        id: userId,
+        email: trimmedEmail,
+        emailNormalized,
+        passwordHash,
+        createdAt,
+      });
+    } catch (err: unknown) {
+      req.log.error(err);
+      return reply.status(500).send({ message: "注册失败，请稍后重试" });
+    }
+    const token = await reply.jwtSign({
+      sub: userId,
+      email: trimmedEmail,
+    } as UserPayload);
+    return { token, user: { id: userId, email: trimmedEmail } };
+  });
+
+  app.post<{ Body: { email: string; password: string } }>("/api/auth/login", async (req, reply) => {
+    const { email, password } = req.body ?? {};
+    const trimmedEmail = (email ?? "").trim();
+    if (!trimmedEmail || !password) {
+      return reply.status(400).send({ message: "缺少邮箱或密码" });
+    }
+    const emailNormalized = normalizeEmail(trimmedEmail);
+    const existing = repo.findUserByEmailNormalized(emailNormalized);
+    if (existing) {
+      if (!verifyPassword(password, existing.passwordHash)) {
+        return reply.status(401).send({ message: "邮箱或密码不正确" });
+      }
+      const token = await reply.jwtSign({
+        sub: existing.id,
+        email: existing.email,
+      } as UserPayload);
+      return { token, user: { id: existing.id, email: existing.email } };
+    }
+
+    if (process.env.NODE_ENV === "production") {
+      return reply.status(401).send({ message: "邮箱或密码不正确" });
+    }
+
+    if (password !== "demo") {
+      return reply.status(401).send({ message: "未注册邮箱请先在 Web 端注册，或使用密码 demo（开发环境）" });
+    }
+    const userId = userIdFromNormalizedEmail(emailNormalized);
+    const token = await reply.jwtSign({
+      sub: userId,
+      email: trimmedEmail,
+    } as UserPayload);
+    return { token, user: { id: userId, email: trimmedEmail } };
   });
 
   app.addHook("preHandler", async (req, reply) => {

@@ -4,6 +4,7 @@ import type { Repository } from "./types.js";
 
 export type { Repository } from "./types.js";
 export type {
+  StoredUser,
   StoredNote,
   StoredNoteImage,
   StoredSnippet,

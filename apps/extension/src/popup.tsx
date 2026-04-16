@@ -169,6 +169,28 @@ function Popup() {
     }
   }, [email, password]);
 
+  const handleRegister = useCallback(async () => {
+    setAuthError(null);
+    try {
+      const res = await fetch(`${apiBase}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message ?? "注册失败");
+      }
+      const data = (await res.json()) as { token: string; user: AuthUser };
+      await writeSession(data.token, data.user);
+      setToken(data.token);
+      setUser(data.user);
+      setSyncMsg("注册成功，已自动登录");
+    } catch (e) {
+      setAuthError((e as Error).message);
+    }
+  }, [email, password]);
+
   const handleLogout = useCallback(async () => {
     await clearSession();
     setToken(null);
@@ -427,13 +449,22 @@ function Popup() {
               placeholder="密码"
               style={{ padding: "6px 8px", fontSize: 12 }}
             />
-            <button
-              type="button"
-              onClick={() => void handleLogin()}
-              style={{ padding: "6px 10px", fontSize: 12, background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}
-            >
-              登录（与 Web 同一账号）
-            </button>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => void handleLogin()}
+                style={{ padding: "6px 10px", fontSize: 12, background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}
+              >
+                登录（与 Web 同一账号）
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRegister()}
+                style={{ padding: "6px 10px", fontSize: 12, background: "#fff", color: "#2563eb", border: "1px solid #2563eb", borderRadius: 4, cursor: "pointer" }}
+              >
+                注册（密码至少 8 位）
+              </button>
+            </div>
             {authError ? <div style={{ fontSize: 11, color: "#b91c1c" }}>{authError}</div> : null}
           </div>
         )}
