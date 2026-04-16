@@ -1,6 +1,9 @@
+import { useCallback } from "react";
+
 import { db } from "@my-notes/local-db";
 import { createId } from "@my-notes/shared";
 import { pullDriveFromCloud, pushDriveToCloud } from "@/lib/drive-sync";
+
 import type { ConflictRecord } from "../types";
 
 type SyncTaskState = {
@@ -12,14 +15,8 @@ export function useCloudDriveSyncActions(
   setTaskState: (next: SyncTaskState) => void,
   setConflicts: (updater: (prev: ConflictRecord[]) => ConflictRecord[]) => void,
 ) {
-  const ensureLogin = (token: string | null) => {
-    if (!token) {
-      throw new Error("请先登录后再同步");
-    }
-  };
-
-  const pushToCloud = async (token: string | null) => {
-    ensureLogin(token);
+  const pushToCloud = useCallback(async (token: string | null) => {
+    if (!token) throw new Error("请先登录后再同步");
     setTaskState({ running: true, type: "push" });
     try {
       const result = await pushDriveToCloud(token);
@@ -27,10 +24,10 @@ export function useCloudDriveSyncActions(
     } finally {
       setTaskState({ running: false, type: null });
     }
-  };
+  }, [setTaskState]);
 
-  const pullFromCloud = async (token: string | null) => {
-    ensureLogin(token);
+  const pullFromCloud = useCallback(async (token: string | null) => {
+    if (!token) throw new Error("请先登录后再同步");
     setTaskState({ running: true, type: "pull" });
     try {
       const pullResult = await pullDriveFromCloud(token);
@@ -64,7 +61,7 @@ export function useCloudDriveSyncActions(
     } finally {
       setTaskState({ running: false, type: null });
     }
-  };
+  }, [setTaskState, setConflicts]);
 
   return {
     pushToCloud,

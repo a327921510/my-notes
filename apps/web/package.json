@@ -14,12 +14,14 @@
     "@my-notes/shared": "*",
     "@my-notes/sync-client": "*",
     "antd": "^6.3.5",
+    "axios": "^1.15.0",
     "dexie": "^4.0.10",
     "dexie-react-hooks": "^1.1.7",
     "quill": "^2.0.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.1.1"
+    "react-router-dom": "^7.1.1",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

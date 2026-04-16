@@ -1,128 +1,87 @@
-import { CloudDownloadOutlined, CloudUploadOutlined, LoginOutlined, SwapOutlined } from "@ant-design/icons";
+import {
+  CloudDownloadOutlined,
+  CloudUploadOutlined,
+  LoginOutlined,
+  SwapOutlined,
+} from "@ant-design/icons";
 import { App, Button, Card, Input, Space, Tabs, Typography, Upload } from "antd";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useState } from "react";
-import { useAuth } from "@/auth/AuthContext";
+
+import { useAuthStore } from "@/stores/useAuthStore";
 import { db } from "@my-notes/local-db";
 import { needsUpload } from "@my-notes/shared";
-import { pullFromCloud, uploadNote, uploadSnippet } from "@my-notes/sync-client";
-import { buildExportPayload, downloadExportJson, importArchiveMerge } from "@/lib/export-archive";
+
+import { LogCard } from "./components/LogCard";
+import { useUploadActions } from "./hooks/useUploadActions";
 
 export function UploadPage() {
   const { message } = App.useApp();
-  const { token, user, login } = useAuth();
+  const user = useAuthStore((s) => s.user);
   const [email, setEmail] = useState("demo@local");
   const [password, setPassword] = useState("demo");
-  const [busy, setBusy] = useState(false);
-  const [log, setLog] = useState<string[]>([]);
+
+  const {
+    token,
+    busy,
+    log,
+    handleLogin,
+    uploadAllPending,
+    handlePull,
+    handleExport,
+    handleImport,
+  } = useUploadActions();
 
   const notes = useLiveQuery(() => db.notes.filter((n) => !n.deletedAt).toArray(), []);
   const snippets = useLiveQuery(() => db.snippets.toArray(), []);
 
-  const pushLog = useCallback((line: string) => {
-    setLog((prev) => [...prev, `${new Date().toLocaleTimeString()} ${line}`]);
-  }, []);
-
-  const handleLogin = useCallback(async () => {
+  const onLogin = useCallback(async () => {
     try {
-      const auth = await login(email, password);
-      pushLog("登录成功，开始自动同步云端数据");
-      const { notesApplied, snippetsApplied } = await pullFromCloud(db, auth.token);
-      pushLog(`自动同步完成：笔记 ${notesApplied} 条，短文本 ${snippetsApplied} 条`);
+      const { notesApplied, snippetsApplied } = await handleLogin(email, password);
       message.success(`登录成功并完成同步：笔记 ${notesApplied}，短文本 ${snippetsApplied}`);
     } catch (e) {
-      const msg = (e as Error).message;
-      pushLog(`登录失败: ${msg}`);
-      message.error(msg);
+      message.error((e as Error).message);
     }
-  }, [email, password, login, pushLog, message]);
+  }, [email, password, handleLogin, message]);
 
-  const uploadAllPending = useCallback(async () => {
-    if (!token) {
-      pushLog("请先登录");
-      message.warning("请先登录");
-      return;
-    }
-    setBusy(true);
+  const onUploadAll = useCallback(async () => {
     try {
-      const noteList = (notes ?? []).filter((n) => needsUpload(n.syncStatus));
-      for (const n of noteList) {
-        try {
-          const imgs = await db.images.where("noteId").equals(n.id).toArray();
-          const { cloudId } = await uploadNote(db, token, n, imgs);
-          await db.notes.update(n.id, { syncStatus: "synced", cloudId });
-          pushLog(`笔记已上传: ${n.title || n.id} -> ${cloudId}`);
-        } catch (e) {
-          await db.notes.update(n.id, { syncStatus: "failed" });
-          pushLog(`笔记失败: ${n.title || n.id} — ${(e as Error).message}`);
-        }
-      }
-
-      const snipList = (snippets ?? []).filter((s) => needsUpload(s.syncStatus));
-      for (const s of snipList) {
-        try {
-          const { cloudId } = await uploadSnippet(db, token, s);
-          await db.snippets.update(s.id, { syncStatus: "synced", cloudId });
-          pushLog(`短文本已上传: ${s.sourceDomain} / ${s.id} -> ${cloudId}`);
-        } catch (e) {
-          await db.snippets.update(s.id, { syncStatus: "failed" });
-          pushLog(`短文本失败: ${s.id} — ${(e as Error).message}`);
-        }
-      }
+      await uploadAllPending(notes ?? [], snippets ?? []);
       message.success("推送完成");
-    } finally {
-      setBusy(false);
+    } catch (e) {
+      message.error((e as Error).message);
     }
-  }, [token, notes, snippets, pushLog, message]);
+  }, [uploadAllPending, notes, snippets, message]);
 
-  const handlePull = useCallback(async () => {
-    if (!token) {
-      message.warning("请先登录");
-      return;
-    }
-    setBusy(true);
+  const onPull = useCallback(async () => {
     try {
-      const { notesApplied, snippetsApplied } = await pullFromCloud(db, token);
-      pushLog(`拉取完成：合并笔记 ${notesApplied} 条，短文本 ${snippetsApplied} 条`);
+      const { notesApplied, snippetsApplied } = await handlePull();
       message.success(`拉取完成：笔记 ${notesApplied}，短文本 ${snippetsApplied}`);
     } catch (e) {
-      const msg = (e as Error).message;
-      pushLog(`拉取失败: ${msg}`);
-      message.error(msg);
-    } finally {
-      setBusy(false);
+      message.error((e as Error).message);
     }
-  }, [token, pushLog, message]);
+  }, [handlePull, message]);
 
-  const handleExport = useCallback(async () => {
-    setBusy(true);
+  const onExport = useCallback(async () => {
     try {
-      const payload = await buildExportPayload();
-      downloadExportJson(payload);
-      pushLog(`已导出 ${payload.notes.length} 条笔记、${payload.blobs.length} 个 blob`);
+      await handleExport();
       message.success("导出已开始下载");
     } catch (e) {
       message.error((e as Error).message);
-    } finally {
-      setBusy(false);
     }
-  }, [pushLog, message]);
+  }, [handleExport, message]);
 
-  const handleImportBeforeUpload = useCallback(
+  const onImportBeforeUpload = useCallback(
     async (file: File) => {
-      setBusy(true);
       try {
-        await importArchiveMerge(file);
-        pushLog(`已导入: ${file.name}`);
+        await handleImport(file);
         message.success("导入完成（合并写入本地）");
       } catch (e) {
         message.error((e as Error).message);
-      } finally {
-        setBusy(false);
       }
       return false;
     },
-    [pushLog, message],
+    [handleImport, message],
   );
 
   const pendingNotes = (notes ?? []).filter((n) => needsUpload(n.syncStatus)).length;
@@ -142,19 +101,16 @@ export function UploadPage() {
             children: (
               <Card size="small" title="账号">
                 <Typography.Paragraph type="secondary" className="text-sm">
-                  未登录仍可本地记录；上传与拉取需登录。演示账号任意邮箱 + 密码 <Typography.Text code>demo</Typography.Text>。
+                  未登录仍可本地记录；上传与拉取需登录。演示账号任意邮箱 + 密码{" "}
+                  <Typography.Text code>demo</Typography.Text>。
                 </Typography.Paragraph>
                 {user ? (
                   <Typography.Text>当前：{user.email}</Typography.Text>
                 ) : (
                   <Space wrap className="mt-3 flex flex-col sm:flex-row">
                     <Input placeholder="邮箱" value={email} onChange={(e) => setEmail(e.target.value)} />
-                    <Input.Password
-                      placeholder="密码"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                    <Button type="primary" onClick={() => void handleLogin()} disabled={busy}>
+                    <Input.Password placeholder="密码" value={password} onChange={(e) => setPassword(e.target.value)} />
+                    <Button type="primary" onClick={() => void onLogin()} disabled={busy}>
                       登录
                     </Button>
                   </Space>
@@ -179,7 +135,7 @@ export function UploadPage() {
                   disabled={busy || !token}
                   loading={busy}
                   icon={<CloudUploadOutlined />}
-                  onClick={() => void uploadAllPending()}
+                  onClick={() => void onUploadAll()}
                 >
                   上传全部未同步
                 </Button>
@@ -208,7 +164,7 @@ export function UploadPage() {
                   disabled={busy || !token}
                   loading={busy}
                   icon={<CloudDownloadOutlined />}
-                  onClick={() => void handlePull()}
+                  onClick={() => void onPull()}
                 >
                   从云端拉取
                 </Button>
@@ -233,7 +189,7 @@ export function UploadPage() {
                   <Typography.Paragraph type="secondary" className="text-sm">
                     导出为 JSON（含图片 Base64），可在其他浏览器或设备导入并合并到本地。
                   </Typography.Paragraph>
-                  <Button disabled={busy} loading={busy} onClick={() => void handleExport()}>
+                  <Button disabled={busy} loading={busy} onClick={() => void onExport()}>
                     导出全部本地数据
                   </Button>
                   <Upload
@@ -241,7 +197,7 @@ export function UploadPage() {
                     maxCount={1}
                     showUploadList={false}
                     beforeUpload={(file) => {
-                      void handleImportBeforeUpload(file);
+                      void onImportBeforeUpload(file);
                       return false;
                     }}
                   >
@@ -256,14 +212,9 @@ export function UploadPage() {
         ]}
       />
 
-      <Card size="small" className="mt-4" title="日志">
-        <ul className="max-h-64 overflow-auto rounded border border-[#f0f0f0] bg-[#fafafa] p-2 font-mono text-xs">
-          {log.length === 0 ? <li className="text-[#9ca3af]">暂无</li> : null}
-          {log.map((line, i) => (
-            <li key={`${i}-${line}`}>{line}</li>
-          ))}
-        </ul>
-      </Card>
+      <LogCard log={log} />
     </div>
   );
 }
+
+export default UploadPage;

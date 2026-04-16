@@ -1,7 +1,9 @@
 import { App, FloatButton, Splitter } from "antd";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAuth } from "@/auth/AuthContext";
+
+import { useAuthStore } from "@/stores/useAuthStore";
 import { db } from "@my-notes/local-db";
+
 import { CloudDriveDetailPanel } from "./components/CloudDriveDetailPanel";
 import { CloudDriveListPanel } from "./components/CloudDriveListPanel";
 import { SyncPanel } from "./components/SyncPanel";
@@ -17,7 +19,7 @@ type SyncTaskState = {
 
 export function CloudDrivePage() {
   const { message } = App.useApp();
-  const { token } = useAuth();
+  const token = useAuthStore((s) => s.token);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
@@ -78,10 +80,7 @@ export function CloudDrivePage() {
       let successCount = 0;
       for (const file of Array.from(files)) {
         try {
-          await addFile({
-            folderId: selectedFolderId,
-            file,
-          });
+          await addFile({ folderId: selectedFolderId, file });
           successCount += 1;
         } catch (e) {
           message.error(`${file.name}：${(e as Error).message}`);
@@ -95,33 +94,36 @@ export function CloudDrivePage() {
     [addFile, message, selectedFolderId],
   );
 
-  const handleDownloadFile = useCallback(async (file: { id: string; name: string; localBlobRef?: string; cloudId?: string }) => {
-    let blob: Blob | null = null;
-    if (file.localBlobRef) {
-      const localBlob = await db.blobs.get(file.localBlobRef);
-      blob = localBlob?.blob ?? null;
-    }
-    if (!blob && file.cloudId && token) {
-      const res = await fetch(`/api/drive/files/${encodeURIComponent(file.cloudId)}/download`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        blob = await res.blob();
+  const handleDownloadFile = useCallback(
+    async (file: { id: string; name: string; localBlobRef?: string; cloudId?: string }) => {
+      let blob: Blob | null = null;
+      if (file.localBlobRef) {
+        const localBlob = await db.blobs.get(file.localBlobRef);
+        blob = localBlob?.blob ?? null;
       }
-    }
-    if (!blob) {
-      message.error("无法下载文件：缺少本地或云端二进制");
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = file.name;
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  }, [message, token]);
+      if (!blob && file.cloudId && token) {
+        const res = await fetch(`/api/drive/files/${encodeURIComponent(file.cloudId)}/download`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          blob = await res.blob();
+        }
+      }
+      if (!blob) {
+        message.error("无法下载文件：缺少本地或云端二进制");
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = file.name;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    },
+    [message, token],
+  );
 
   const handlePush = useCallback(async () => {
     try {
@@ -152,6 +154,9 @@ export function CloudDrivePage() {
   const runningType = syncTaskState.type;
 
   const detailFiles = useMemo(() => selectedFiles, [selectedFiles]);
+
+  const handleCloseSyncPanel = useCallback(() => setSyncPanelOpen(false), []);
+  const handleOpenSyncPanel = useCallback(() => setSyncPanelOpen(true), []);
 
   return (
     <>
@@ -192,14 +197,16 @@ export function CloudDrivePage() {
         type="primary"
         description="同步"
         tooltip="打开同步面板"
-        onClick={() => setSyncPanelOpen(true)}
+        onClick={handleOpenSyncPanel}
       />
       <SyncPanel
         open={syncPanelOpen}
-        onClose={() => setSyncPanelOpen(false)}
+        onClose={handleCloseSyncPanel}
         runningType={runningType}
         conflicts={conflicts}
       />
     </>
   );
 }
+
+export default CloudDrivePage;

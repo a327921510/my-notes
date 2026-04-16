@@ -1,8 +1,10 @@
 import { Space, Tree, Typography, type TreeProps } from "antd";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import type { NoteRecord } from "@my-notes/shared";
 import { ensureDefaultFolder } from "@my-notes/local-db";
-import useFolderState from "../hooks/useFolderState";
+
+import { useFolderState } from "../hooks/useFolderState";
 import { useNoteCommands } from "../hooks/useNoteCommands";
 import { useNotesList } from "../hooks/useNotesList";
 import { BookTitle } from "./BookTitle";
@@ -37,11 +39,10 @@ export type NotesTreeSelection = {
 };
 
 export type NotesFolderTreeProps = {
-  /** 请用 `useCallback` 保持引用稳定，避免多余通知。 */
   onSelectionChange: (selection: NotesTreeSelection) => void;
 };
 
-function NotesFolderTreeInner({ onSelectionChange }: NotesFolderTreeProps) {
+export const NotesFolderTree = memo(function NotesFolderTree({ onSelectionChange }: NotesFolderTreeProps) {
   const { folders, addFolder, renameFolder, deleteFolder } = useFolderState();
   const { notes } = useNotesList();
   const { createNote } = useNoteCommands();
@@ -238,7 +239,4 @@ function NotesFolderTreeInner({ onSelectionChange }: NotesFolderTreeProps) {
       />
     </Space>
   );
-}
-
-/** 树内维护文件夹/笔记数据与选中项；展开状态在内部，避免展开时整页重渲染。 */
-export const NotesFolderTree = memo(NotesFolderTreeInner);
+});

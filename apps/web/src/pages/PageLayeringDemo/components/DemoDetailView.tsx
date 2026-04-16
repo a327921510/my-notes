@@ -1,12 +1,12 @@
 import { Button, Card, Empty, Typography } from "antd";
+import { memo } from "react";
 
 export type DemoDetailViewProps = {
   selectedLabel: string | null;
   onDeleteSelected?: () => void;
 };
 
-/** 纯展示 + 回调：右侧详情区样式与操作入口。 */
-export function DemoDetailView({ selectedLabel, onDeleteSelected }: DemoDetailViewProps) {
+export const DemoDetailView = memo(function DemoDetailView({ selectedLabel, onDeleteSelected }: DemoDetailViewProps) {
   if (!selectedLabel) {
     return <Empty description="请在左侧选择一条" />;
   }
@@ -21,4 +21,4 @@ export function DemoDetailView({ selectedLabel, onDeleteSelected }: DemoDetailVi
       ) : null}
     </Card>
   );
-}
+});

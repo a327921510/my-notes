@@ -1,13 +1,15 @@
 import { App, Splitter } from "antd";
 import { useCallback } from "react";
-import { useAuth } from "@/auth/AuthContext";
+
+import { useAuthStore } from "@/stores/useAuthStore";
+
 import { SiteDetailPanel } from "./components/SiteDetailPanel";
 import { SitesListPanel } from "./components/SitesListPanel";
 import { useSitesState } from "./hooks/useSitesState";
 
 export function SitesPage() {
   const { message } = App.useApp();
-  const { token } = useAuth();
+  const token = useAuthStore((s) => s.token);
   const {
     filteredSites,
     selectedSite,
@@ -124,3 +126,5 @@ export function SitesPage() {
     </Splitter>
   );
 }
+
+export default SitesPage;

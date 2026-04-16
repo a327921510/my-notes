@@ -1,10 +1,12 @@
 import { Empty, Input, Space, Splitter } from "antd";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { db } from "@my-notes/local-db";
 import { createId } from "@my-notes/shared";
 import { pruneNoteImagesNotReferenced } from "@/lib/noteContentImages";
+
 import { BreadcrumbBar } from "./components/BreadcrumbBar";
 import { NotesFolderTree, type NotesTreeSelection } from "./components/NotesFolderTree";
 import { useNoteCommands } from "./hooks/useNoteCommands";
@@ -60,6 +62,10 @@ export function NotesPage() {
     await deleteNote(selectedNoteId, folderId);
   }, [deleteNote, selectedNoteId, folderId]);
 
+  const handleGoToSyncedFiles = useCallback(() => {
+    navigate("/synced");
+  }, [navigate]);
+
   const editorKey = useMemo(() => selectedNote?.id ?? "no-note", [selectedNote?.id]);
 
   return (
@@ -78,7 +84,7 @@ export function NotesPage() {
               <BreadcrumbBar
                 selectedFolder={selectedFolder ?? undefined}
                 selectedNote={selectedNote}
-                onGoToSyncedFiles={() => navigate("/synced")}
+                onGoToSyncedFiles={handleGoToSyncedFiles}
                 onDeleteNote={() => void handleDeleteNote()}
               />
               <Input
@@ -102,3 +108,5 @@ export function NotesPage() {
     </Splitter>
   );
 }
+
+export default NotesPage;

@@ -1,7 +1,8 @@
 import { CloudDownloadOutlined, CloudUploadOutlined, PlusOutlined } from "@ant-design/icons";
 import { Button, Space, Typography } from "antd";
+import { memo } from "react";
 
-type CloudDriveDetailTopBarProps = {
+export type CloudDriveDetailTopBarProps = {
   pathLabel: string;
   syncing: boolean;
   onPull: () => void;
@@ -9,7 +10,13 @@ type CloudDriveDetailTopBarProps = {
   onAddFile: () => void;
 };
 
-export function CloudDriveDetailTopBar({ pathLabel, syncing, onPull, onPush, onAddFile }: CloudDriveDetailTopBarProps) {
+export const CloudDriveDetailTopBar = memo(function CloudDriveDetailTopBar({
+  pathLabel,
+  syncing,
+  onPull,
+  onPush,
+  onAddFile,
+}: CloudDriveDetailTopBarProps) {
   return (
     <div className="flex items-center justify-between gap-3 rounded border border-solid border-gray-200 p-3">
       <Typography.Text strong>当前路径：{pathLabel}</Typography.Text>
@@ -26,4 +33,4 @@ export function CloudDriveDetailTopBar({ pathLabel, syncing, onPull, onPush, onA
       </Space>
     </div>
   );
-}
+});

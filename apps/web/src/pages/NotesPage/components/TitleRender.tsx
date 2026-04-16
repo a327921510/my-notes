@@ -1,15 +1,20 @@
-import { PlusOutlined, EllipsisOutlined, FileTextOutlined, FolderOpenOutlined } from "@ant-design/icons";
+import { EllipsisOutlined, FileTextOutlined, FolderOpenOutlined, PlusOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Space, Typography } from "antd";
 import { memo } from "react";
 
+type TreeNodeLike = {
+  key: string | number | bigint;
+  title?: unknown;
+};
+
 export type TitleRenderProps = {
-  node: any;
+  node: TreeNodeLike;
   onRenameFolder: () => void;
   onDeleteFolder: () => void;
   onCreateNote: () => void;
 };
 
-function TitleRenderInner({
+export const TitleRender = memo(function TitleRender({
   node,
   onRenameFolder,
   onDeleteFolder,
@@ -57,6 +62,4 @@ function TitleRenderInner({
       ) : null}
     </div>
   );
-}
-
-export const TitleRender = memo(TitleRenderInner);
+});

@@ -1,10 +1,11 @@
 import { App } from "antd";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useMemo } from "react";
+
 import { db } from "@my-notes/local-db";
 import { createId } from "@my-notes/shared";
 
-export default function useFolderState() {
+export function useFolderState() {
   const { message } = App.useApp();
   const folders = useLiveQuery(
     () => db.folders.filter((f) => !f.deletedAt).sortBy("name"),
@@ -49,7 +50,6 @@ export default function useFolderState() {
       if (!folder || folder.deletedAt) return;
       if (!window.confirm(`确定删除文件夹「${folder.name}」吗？`)) return;
 
-      // 判断有无子文件
       const hasChildren = (await db.notes.where("folderId").equals(folderId).count()) > 0;
       if (hasChildren) {
         message.warning("文件夹下有笔记，不能删除");

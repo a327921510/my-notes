@@ -1,12 +1,10 @@
 import { Splitter } from "antd";
 import { useCallback, useRef, useState } from "react";
+
 import { DemoDetailView } from "./components/DemoDetailView";
 import { DemoListPanel, type DemoTreeSelection } from "./components/DemoListPanel";
 import { DemoStatBar } from "./components/DemoStatBar";
 
-/**
- * 页面入口：跨区状态（选中摘要）、路由/权限（若需要）、把区域暴露的操作交给展示层回调。
- */
 export function PageLayeringDemo() {
   const [selection, setSelection] = useState<DemoTreeSelection | null>(null);
   const listActionsRef = useRef<{ removeSelected: () => void }>({
@@ -19,6 +17,10 @@ export function PageLayeringDemo() {
 
   const handleRegisterActions = useCallback((a: { removeSelected: () => void }) => {
     listActionsRef.current = a;
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    listActionsRef.current.removeSelected();
   }, []);
 
   const selectedLabel = selection?.selectedLabel ?? null;
@@ -34,12 +36,11 @@ export function PageLayeringDemo() {
       <Splitter.Panel>
         <div className="flex h-full flex-col gap-3 p-3">
           <DemoStatBar itemCount={itemCount} selectedLabel={selectedLabel} />
-          <DemoDetailView
-            selectedLabel={selectedLabel}
-            onDeleteSelected={() => listActionsRef.current.removeSelected()}
-          />
+          <DemoDetailView selectedLabel={selectedLabel} onDeleteSelected={handleDeleteSelected} />
         </div>
       </Splitter.Panel>
     </Splitter>
   );
 }
+
+export default PageLayeringDemo;

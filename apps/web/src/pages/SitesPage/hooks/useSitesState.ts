@@ -1,5 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import { db } from "@my-notes/local-db";
 import { createId, nextSyncAfterEdit } from "@my-notes/shared";
 import {
@@ -9,6 +10,7 @@ import {
   syncAllSitesWithConflict,
   syncDirtySitesToCloud,
 } from "@my-notes/sync-client";
+
 import type { Site, SiteItem } from "../types";
 
 export function useSitesState() {
@@ -60,7 +62,7 @@ export function useSitesState() {
     [selectedSiteId, sites],
   );
 
-  const addSite = async (payload: { name: string; address: string }) => {
+  const addSite = useCallback(async (payload: { name: string; address: string }) => {
     const siteId = createId("site");
     await db.sites.add({
       id: siteId,
@@ -71,9 +73,9 @@ export function useSitesState() {
       syncStatus: "local_only",
     });
     setSelectedSiteId(siteId);
-  };
+  }, []);
 
-  const cloneSite = async (sourceSiteId: string, payload: { name: string; address: string }) => {
+  const cloneSite = useCallback(async (sourceSiteId: string, payload: { name: string; address: string }) => {
     const siteId = createId("site");
     const sourceItems = await db.site_items.where("siteId").equals(sourceSiteId).toArray();
     await db.transaction("rw", db.sites, db.site_items, async () => {
@@ -97,11 +99,11 @@ export function useSitesState() {
       }
     });
     setSelectedSiteId(siteId);
-  };
+  }, []);
 
   type SiteRemoteOpts = { authToken?: string | null; apiBase?: string };
 
-  const removeSite = async (siteId: string, opts?: SiteRemoteOpts) => {
+  const removeSite = useCallback(async (siteId: string, opts?: SiteRemoteOpts) => {
     const token = opts?.authToken ?? null;
     if (token) {
       await deleteSiteOnCloud(token, siteId, { apiBase: opts?.apiBase });
@@ -110,20 +112,9 @@ export function useSitesState() {
       await db.site_items.where("siteId").equals(siteId).delete();
       await db.sites.delete(siteId);
     });
-  };
+  }, []);
 
-  const updateSiteAddress = async (siteId: string, address: string) => {
-    const current = await db.sites.get(siteId);
-    if (!current) return;
-    await db.sites.update(siteId, {
-      address: address.trim(),
-      updatedAt: Date.now(),
-      version: current.version ?? 1,
-      syncStatus: nextSyncAfterEdit(current.syncStatus),
-    });
-  };
-
-  const addItem = async (siteId: string) => {
+  const addItem = useCallback(async (siteId: string) => {
     const id = createId("item");
     await db.site_items.add({
       id,
@@ -134,9 +125,9 @@ export function useSitesState() {
       syncStatus: "local_only",
     });
     return id;
-  };
+  }, []);
 
-  const updateItem = async (siteId: string, itemId: string, patch: Partial<Pick<SiteItem, "name" | "content">>) => {
+  const updateItem = useCallback(async (siteId: string, itemId: string, patch: Partial<Pick<SiteItem, "name" | "content">>) => {
     const current = await db.site_items.get(itemId);
     if (!current || current.siteId !== siteId) return;
     await db.site_items.update(itemId, {
@@ -144,9 +135,9 @@ export function useSitesState() {
       updatedAt: Date.now(),
       syncStatus: nextSyncAfterEdit(current.syncStatus),
     });
-  };
+  }, []);
 
-  const removeItem = async (siteId: string, itemId: string, opts?: SiteRemoteOpts) => {
+  const removeItem = useCallback(async (siteId: string, itemId: string, opts?: SiteRemoteOpts) => {
     const current = await db.site_items.get(itemId);
     if (!current || current.siteId !== siteId) return;
     const token = opts?.authToken ?? null;
@@ -163,22 +154,22 @@ export function useSitesState() {
       }
     }
     await db.site_items.delete(itemId);
-  };
+  }, []);
 
-  const syncSiteData = async (token: string | null, selectedSiteIdForSync?: string | null) => {
+  const syncSiteData = useCallback(async (token: string | null, selectedSiteIdForSync?: string | null) => {
     if (!token) throw new Error("请先登录后再同步");
     await syncDirtySitesToCloud(db, token, {}, selectedSiteIdForSync);
-  };
+  }, []);
 
-  const pullSiteData = async (token: string | null) => {
+  const pullSiteData = useCallback(async (token: string | null) => {
     if (!token) throw new Error("请先登录后再拉取");
     return pullSitesFromCloud(db, token, {});
-  };
+  }, []);
 
-  const syncAllWithConflict = async (token: string | null) => {
+  const syncAllWithConflict = useCallback(async (token: string | null) => {
     if (!token) throw new Error("请先登录后再同步");
     return syncAllSitesWithConflict(db, token, {});
-  };
+  }, []);
 
   return {
     sites,
@@ -191,7 +182,6 @@ export function useSitesState() {
     addSite,
     cloneSite,
     removeSite,
-    updateSiteAddress,
     addItem,
     updateItem,
     removeItem,

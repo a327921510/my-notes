@@ -1,3 +1,5 @@
+import { useCallback } from "react";
+
 import { db } from "@my-notes/local-db";
 import { createId, nextSyncAfterEdit } from "@my-notes/shared";
 
@@ -8,7 +10,7 @@ function normalize(input: string) {
 }
 
 export function useCloudDriveMutations() {
-  const createFolder = async (name: string, parentId: string | null = null) => {
+  const createFolder = useCallback(async (name: string, parentId: string | null = null) => {
     const trimmed = name.trim();
     if (!trimmed) throw new Error("目录名称不能为空");
     const normalized = normalize(trimmed);
@@ -31,17 +33,17 @@ export function useCloudDriveMutations() {
       syncStatus: "local_only",
     });
     return id;
-  };
+  }, []);
 
-  const removeFolder = async (folderId: string) => {
+  const removeFolder = useCallback(async (folderId: string) => {
     const children = await db.drive_files.where("folderId").equals(folderId).toArray();
     if (children.length > 0) {
       throw new Error("目录包含文件，请先删除文件后再删除目录");
     }
     await db.drive_folders.delete(folderId);
-  };
+  }, []);
 
-  const addFile = async (payload: { folderId: string; file: File }) => {
+  const addFile = useCallback(async (payload: { folderId: string; file: File }) => {
     const trimmed = payload.file.name.trim();
     if (!trimmed) throw new Error("文件名不能为空");
     if (ILLEGAL_FILE_NAME_CHARS.test(trimmed)) throw new Error("文件名包含非法字符");
@@ -69,9 +71,9 @@ export function useCloudDriveMutations() {
       syncStatus: "local_only",
     });
     return id;
-  };
+  }, []);
 
-  const renameFile = async (fileId: string, nextName: string) => {
+  const renameFile = useCallback(async (fileId: string, nextName: string) => {
     const current = await db.drive_files.get(fileId);
     if (!current) return;
     const trimmed = nextName.trim();
@@ -87,9 +89,9 @@ export function useCloudDriveMutations() {
       updatedAt: Date.now(),
       syncStatus: nextSyncAfterEdit(current.syncStatus),
     });
-  };
+  }, []);
 
-  const removeFile = async (fileId: string) => {
+  const removeFile = useCallback(async (fileId: string) => {
     const current = await db.drive_files.get(fileId);
     if (current?.cloudId) {
       await db.drive_file_tombstones.put({
@@ -104,7 +106,7 @@ export function useCloudDriveMutations() {
       await db.blobs.delete(current.localBlobRef);
     }
     await db.drive_files.delete(fileId);
-  };
+  }, []);
 
   return {
     createFolder,
