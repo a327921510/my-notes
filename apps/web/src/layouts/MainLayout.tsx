@@ -1,15 +1,15 @@
 import {
-  AppstoreOutlined,
-  CloudSyncOutlined,
-  CloudUploadOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   GlobalOutlined,
+  LoginOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { Button, Layout, Space, Typography } from "antd";
-import { Suspense } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { LoginModal } from "@/components/LoginModal";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 const { Header, Content } = Layout;
@@ -33,6 +33,10 @@ export function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const selectedKey = pathToMenuKey(location.pathname);
+  const [loginOpen, setLoginOpen] = useState(false);
+
+  const openLogin = useCallback(() => setLoginOpen(true), []);
+  const closeLogin = useCallback(() => setLoginOpen(false), []);
 
   return (
     <Layout className="h-[100vh] bg-[#f5f5f5]">
@@ -55,13 +59,16 @@ export function MainLayout() {
         <Space wrap>
           {user ? (
             <>
-              <Typography.Text type="secondary">{user.email}</Typography.Text>
+              <Space size={4}>
+                <UserOutlined />
+                <Typography.Text type="secondary">{user.email}</Typography.Text>
+              </Space>
               <Button onClick={logout}>退出</Button>
             </>
           ) : (
-            <Typography.Text type="secondary">
-              未登录 · 可本地记录
-            </Typography.Text>
+            <Button type="primary" icon={<LoginOutlined />} onClick={openLogin}>
+              登录
+            </Button>
           )}
         </Space>
       </Header>
@@ -70,6 +77,7 @@ export function MainLayout() {
           <Outlet />
         </Suspense>
       </Content>
+      <LoginModal isOpen={loginOpen} onClose={closeLogin} />
     </Layout>
   );
 }
