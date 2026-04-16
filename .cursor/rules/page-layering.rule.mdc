@@ -1,6 +1,8 @@
 ---
 description: React 页面四层架构（页面入口 / 区域组件 / 业务 Hooks / 纯展示组件）
-alwaysApply: true
+alwaysApply: false
+globs:
+  - "apps/web/src/**"
 ---
 
 # React 页面四层架构（AI 规则）

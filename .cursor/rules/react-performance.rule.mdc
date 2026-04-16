@@ -1,6 +1,9 @@
 ---
 description: React 渲染性能优化规则（memo / useCallback / useMemo）
-alwaysApply: true
+alwaysApply: false
+globs:
+  - "apps/web/src/**"
+  - "apps/extension/src/**"
 ---
 
 # React 渲染性能规则

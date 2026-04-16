@@ -1,6 +1,8 @@
 ---
 description: Zustand 全局状态管理规则
-alwaysApply: true
+alwaysApply: false
+globs:
+  - "apps/web/src/**"
 ---
 
 # Zustand Store 规则

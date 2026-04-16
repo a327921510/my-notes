@@ -1,6 +1,8 @@
 ---
 description: Tailwind CSS v4 + Less CSS Modules + Ant Design 主题的样式分工规则
-alwaysApply: true
+alwaysApply: false
+globs:
+  - "apps/web/src/**"
 ---
 
 # 样式方案规则

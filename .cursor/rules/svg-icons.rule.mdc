@@ -2,8 +2,8 @@
 description: SVG 图标管理规则（vite-plugin-svgr）
 alwaysApply: false
 globs:
-  - "src/assets/icons/**"
-  - "**/*.svg"
+  - "apps/web/src/assets/icons/**"
+  - "apps/web/**/*.svg"
 ---
 
 # SVG 图标规则
