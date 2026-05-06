@@ -1,4 +1,5 @@
 import { lazy } from "react";
+import { Navigate } from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
 
 const MainLayout = lazy(() => import("@/layouts/MainLayout"));
@@ -13,7 +14,8 @@ export const routes: RouteObject[] = [
     path: "/",
     element: <MainLayout />,
     children: [
-      { index: true, element: <NotesPage /> },
+      { index: true, element: <Navigate to="/notes" replace /> },
+      { path: "notes", element: <NotesPage /> },
       { path: "sites", element: <SitesPage /> },
       { path: "projects", element: <ProjectsPage /> },
       { path: "cloud-drive", element: <CloudDrivePage /> },
