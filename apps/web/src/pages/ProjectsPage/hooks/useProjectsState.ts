@@ -13,8 +13,45 @@ import {
 
 import type { ProjectItem, ProjectVM } from "../types";
 
+/**
+ * 项目详情列表展示顺序：
+ * 1. 无站点条目在前，有站点条目在后
+ * 2. 有站点条目按站点分组连续展示；站点块顺序取各站点在原始列表中首次出现的顺序
+ */
+function sortProjectItemsForDisplay(items: ProjectItem[]): ProjectItem[] {
+  const withoutSite: ProjectItem[] = [];
+  const withSite: ProjectItem[] = [];
+  for (const item of items) {
+    if (!item.siteId) withoutSite.push(item);
+    else withSite.push(item);
+  }
+
+  const siteIdFirstOrder: string[] = [];
+  const seenSiteId = new Set<string>();
+  for (const item of withSite) {
+    const sid = item.siteId;
+    if (!sid || seenSiteId.has(sid)) continue;
+    seenSiteId.add(sid);
+    siteIdFirstOrder.push(sid);
+  }
+
+  const bySiteId = new Map<string, ProjectItem[]>();
+  for (const sid of siteIdFirstOrder) {
+    bySiteId.set(sid, []);
+  }
+  for (const item of withSite) {
+    const sid = item.siteId;
+    if (!sid) continue;
+    bySiteId.get(sid)?.push(item);
+  }
+
+  const groupedWithSite = siteIdFirstOrder.flatMap((sid) => bySiteId.get(sid) ?? []);
+  return [...withoutSite, ...groupedWithSite];
+}
+
 export function useProjectsState() {
   const projectRows = useLiveQuery(() => db.projects.toArray(), []) ?? [];
+  const siteRows = useLiveQuery(() => db.sites.toArray(), []) ?? [];
   const itemRows = useLiveQuery(() => db.site_items.toArray(), []) ?? [];
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -35,18 +72,25 @@ export function useProjectsState() {
       name: row.name,
       syncStatus: row.syncStatus,
       cloudId: row.cloudId,
-      items: itemRows
-        .filter((item) => (item.projectId ?? null) === row.id)
-        .map<ProjectItem>((item) => ({
-          id: item.id,
-          name: item.name,
-          content: item.content,
-          syncStatus: item.syncStatus,
-          cloudId: item.cloudId,
-          siteId: item.siteId ?? null,
-        })),
+      items: sortProjectItemsForDisplay(
+        itemRows
+          .filter((item) => (item.projectId ?? null) === row.id)
+          .map<ProjectItem>((item) => {
+            const site = item.siteId ? siteRows.find((s) => s.id === item.siteId) : undefined;
+            return {
+              id: item.id,
+              name: item.name,
+              content: item.content,
+              syncStatus: item.syncStatus,
+              cloudId: item.cloudId,
+              siteId: item.siteId ?? null,
+              siteAddress: site?.address,
+              siteName: site?.name,
+            };
+          }),
+      ),
     }));
-  }, [itemRows, projectRows]);
+  }, [itemRows, projectRows, siteRows]);
 
   const filteredProjects = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();

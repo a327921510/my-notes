@@ -103,42 +103,42 @@ export function SitesPage() {
     <>
       <input {...backup.importInputProps} />
       <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
-      <Splitter.Panel defaultSize={320} min={260} max={480}>
-        <div className="h-full p-3">
-          <SitesListPanel
-            sites={filteredSites}
-            selectedSiteId={selectedSiteId}
-            searchKeyword={searchKeyword}
-            projectFilterId={projectFilterId}
-            projectOptions={projectOptions}
-            onSearch={setSearchKeyword}
-            onProjectFilterChange={setProjectFilterId}
-            onSelectSite={setSelectedSiteId}
-            onCreateSite={handleCreateSite}
-            onDeleteSite={handleDeleteSite}
-            onPullFromCloud={handlePullFromCloud}
-            onPushToCloud={handlePushToCloud}
-            onExportBackup={backup.exportBackup}
-            onImportBackup={backup.openImportPicker}
-          />
-        </div>
-      </Splitter.Panel>
-      <Splitter.Panel>
-        <div className="h-full p-3">
-          <SiteDetailPanel
-            site={selectedSite}
-            projectOptions={projectOptions}
-            onAddItem={addItem}
-            onUpdateItem={updateItem}
-            onDeleteItem={handleDeleteItem}
-            onSync={handleSync}
-            onPull={handlePull}
-            onCloneSite={cloneSite}
-            onSiteProjectChange={setSiteProjectId}
-          />
-        </div>
-      </Splitter.Panel>
-    </Splitter>
+        <Splitter.Panel defaultSize={320} min={260} max={480}>
+          <div className="h-full p-3">
+            <SitesListPanel
+              sites={filteredSites}
+              selectedSiteId={selectedSiteId}
+              searchKeyword={searchKeyword}
+              projectFilterId={projectFilterId}
+              projectOptions={projectOptions}
+              onSearch={setSearchKeyword}
+              onProjectFilterChange={setProjectFilterId}
+              onSelectSite={setSelectedSiteId}
+              onCreateSite={handleCreateSite}
+              onDeleteSite={handleDeleteSite}
+              onPullFromCloud={handlePullFromCloud}
+              onPushToCloud={handlePushToCloud}
+              onExportBackup={backup.exportBackup}
+              onImportBackup={backup.openImportPicker}
+            />
+          </div>
+        </Splitter.Panel>
+        <Splitter.Panel>
+          <div className="h-full p-3">
+            <SiteDetailPanel
+              site={selectedSite}
+              projectOptions={projectOptions}
+              onAddItem={addItem}
+              onUpdateItem={updateItem}
+              onDeleteItem={handleDeleteItem}
+              onSync={handleSync}
+              onPull={handlePull}
+              onCloneSite={cloneSite}
+              onSiteProjectChange={setSiteProjectId}
+            />
+          </div>
+        </Splitter.Panel>
+      </Splitter>
     </>
   );
 }

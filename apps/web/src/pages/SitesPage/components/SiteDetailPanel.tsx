@@ -1,6 +1,7 @@
-import { DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined } from "@ant-design/icons";
-import { Button, Empty, Input, Modal, Popconfirm, Select, Space, Typography, message } from "antd";
-import { useMemo, useState } from "react";
+import { PlusOutlined } from "@ant-design/icons";
+import { Button, Empty, Input, Modal, Select, Space, Typography, message } from "antd";
+import { useCallback, useMemo, useState } from "react";
+import { ItemArticleRow, formatItemArticleCopyLine } from "@/components/ItemArticleRow";
 import { SyncBadge } from "@/components/SyncBadge";
 import type { Site } from "../types";
 
@@ -28,6 +29,52 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
 
   const canSaveItem = useMemo(() => itemContentDraft.trim().length > 0, [itemContentDraft]);
 
+  const handleCopySiteItem = useCallback((itemId: string) => {
+    if (!site) return;
+    const item = site.items.find((i) => i.id === itemId);
+    if (!item) return;
+    void navigator.clipboard.writeText(formatItemArticleCopyLine(item));
+    message.success("已复制");
+  }, [site]);
+
+  const handleEditSiteItem = useCallback((itemId: string) => {
+    if (!site) return;
+    const item = site.items.find((i) => i.id === itemId);
+    if (!item) return;
+    setEditingItemId(itemId);
+    setItemNameDraft(item.name);
+    setItemContentDraft(item.content);
+  }, [site]);
+
+  const handleDeleteSiteItem = useCallback(
+    (itemId: string) => {
+      if (!site) return;
+      void onDeleteItem(site.id, itemId);
+    },
+    [site, onDeleteItem],
+  );
+
+  const cancelItemEdit = useCallback(() => {
+    setEditingItemId(null);
+    setItemNameDraft("");
+    setItemContentDraft("");
+  }, []);
+
+  const commitItemEdit = useCallback(async () => {
+    if (!site || !editingItemId) return;
+    if (!itemContentDraft.trim()) {
+      message.warning("内容为必填项");
+      return;
+    }
+    await onUpdateItem(site.id, editingItemId, {
+      name: itemNameDraft,
+      content: itemContentDraft,
+    });
+    setEditingItemId(null);
+    setItemNameDraft("");
+    setItemContentDraft("");
+  }, [site, editingItemId, itemContentDraft, itemNameDraft, onUpdateItem]);
+
   if (!site) {
     return <Empty description="请选择左侧站点查看详情" />;
   }
@@ -45,26 +92,6 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
     }
     await onCloneSite(site.id, { name: copyName, address: copyAddress });
     setCopyOpen(false);
-  };
-
-  const startEditItem = (itemId: string, currentName: string, currentContent: string) => {
-    setEditingItemId(itemId);
-    setItemNameDraft(currentName);
-    setItemContentDraft(currentContent);
-  };
-
-  const saveItem = async (itemId: string) => {
-    if (!itemContentDraft.trim()) {
-      message.warning("内容为必填项");
-      return;
-    }
-    await onUpdateItem(site.id, itemId, {
-      name: itemNameDraft,
-      content: itemContentDraft,
-    });
-    setEditingItemId(null);
-    setItemNameDraft("");
-    setItemContentDraft("");
   };
 
   const handleAddItem = async () => {
@@ -112,74 +139,29 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
         </Space>
       </Modal>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded border border-solid border-gray-200 p-3">
+      <div className="min-h-0 flex-1 overflow-auto rounded border border-solid border-gray-100">
         {site.items.length === 0 ? (
           <Empty description="暂无条目，点击右上角新增" />
         ) : (
-          <Space direction="vertical" className="w-full" size="middle">
-            {site.items.map((item) => {
-              const editing = editingItemId === item.id;
-              return (
-                <div key={item.id} className="rounded border border-solid border-gray-200 p-3">
-                  {!editing ? (
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <Typography.Text strong>{item.name || "（未命名）"}</Typography.Text>
-                        <div>
-                          <SyncBadge status={item.syncStatus} />
-                        </div>
-                        <div className="mt-2 whitespace-pre-wrap text-gray-700">{item.content || "-"}</div>
-                      </div>
-                      <Space>
-                        <Button
-                          icon={<EditOutlined />}
-                          onClick={() => startEditItem(item.id, item.name, item.content)}
-                        >
-                          编辑
-                        </Button>
-                        <Popconfirm
-                          title="确认删除该条目？"
-                          description="删除后不可恢复"
-                          okText="确认"
-                          cancelText="取消"
-                          onConfirm={() => onDeleteItem(site.id, item.id)}
-                        >
-                          <Button danger icon={<DeleteOutlined />}>
-                            删除
-                          </Button>
-                        </Popconfirm>
-                      </Space>
-                    </div>
-                  ) : (
-                    <Space direction="vertical" className="w-full">
-                      <Input
-                        value={itemNameDraft}
-                        onChange={(e) => setItemNameDraft(e.target.value)}
-                        placeholder="名称（非必填）"
-                      />
-                      <Input.TextArea
-                        value={itemContentDraft}
-                        onChange={(e) => setItemContentDraft(e.target.value)}
-                        placeholder="内容（必填）"
-                        autoSize={{ minRows: 3, maxRows: 8 }}
-                      />
-                      <Space>
-                        <Button
-                          type="primary"
-                          icon={<SaveOutlined />}
-                          disabled={!canSaveItem}
-                          onClick={() => void saveItem(item.id)}
-                        >
-                          保存
-                        </Button>
-                        <Button onClick={() => setEditingItemId(null)}>取消</Button>
-                      </Space>
-                    </Space>
-                  )}
-                </div>
-              );
-            })}
-          </Space>
+          <div className="w-full">
+            {site.items.map((item) => (
+              <ItemArticleRow
+                key={item.id}
+                item={item}
+                isEditing={editingItemId === item.id}
+                itemNameDraft={itemNameDraft}
+                itemContentDraft={itemContentDraft}
+                onItemNameChange={setItemNameDraft}
+                onItemContentChange={setItemContentDraft}
+                canSaveItem={canSaveItem}
+                onSave={commitItemEdit}
+                onCancelEdit={cancelItemEdit}
+                onCopy={handleCopySiteItem}
+                onEdit={handleEditSiteItem}
+                onDelete={handleDeleteSiteItem}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>

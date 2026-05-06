@@ -1,10 +1,12 @@
-import { DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined } from "@ant-design/icons";
-import { Button, Empty, Input, Space, Typography, message } from "antd";
-import { useMemo, useState } from "react";
+import { PlusOutlined } from "@ant-design/icons";
+import { Button, Empty, Space, Typography, message } from "antd";
+import { Fragment, useCallback, useMemo, useState } from "react";
 
+import { ItemArticleRow, formatItemArticleCopyLine } from "@/components/ItemArticleRow";
+import { SiteSectionHeadingBar } from "@/components/SiteSectionHeadingBar";
 import { SyncBadge } from "@/components/SyncBadge";
 
-import type { ProjectVM } from "../types";
+import type { ProjectItem, ProjectVM } from "../types";
 
 export type ProjectDetailPanelProps = {
   project: ProjectVM | null;
@@ -15,6 +17,20 @@ export type ProjectDetailPanelProps = {
   onPull: () => Promise<void>;
 };
 
+/** 当前行是否为「站点分组」的第一条（与前一条 siteId 不同或列表首条） */
+function isSiteSectionStart(items: ProjectItem[], index: number): boolean {
+  const item = items[index];
+  if (!item.siteId) return false;
+  if (index === 0) return true;
+  return items[index - 1]?.siteId !== item.siteId;
+}
+
+function formatSiteSectionHeading(item: ProjectItem): string {
+  const addr = (item.siteAddress ?? "").trim() || "未设置站点地址";
+  const name = (item.siteName ?? "").trim() || "未命名站点";
+  return `${addr} (${name})`;
+}
+
 export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
   const { project, onAddItem, onUpdateItem, onDeleteItem, onSync, onPull } = props;
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -23,29 +39,61 @@ export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
 
   const canSaveItem = useMemo(() => itemContentDraft.trim().length > 0, [itemContentDraft]);
 
-  if (!project) {
-    return <Empty description="请选择左侧项目查看条目" />;
-  }
+  const handleCopyProjectItem = useCallback(
+    (itemId: string) => {
+      if (!project) return;
+      const item = project.items.find((i) => i.id === itemId);
+      if (!item) return;
+      void navigator.clipboard.writeText(formatItemArticleCopyLine(item));
+      message.success("已复制");
+    },
+    [project],
+  );
 
-  const startEditItem = (itemId: string, currentName: string, currentContent: string) => {
-    setEditingItemId(itemId);
-    setItemNameDraft(currentName);
-    setItemContentDraft(currentContent);
-  };
+  const handleEditProjectItem = useCallback(
+    (itemId: string) => {
+      if (!project) return;
+      const item = project.items.find((i) => i.id === itemId);
+      if (!item) return;
+      setEditingItemId(itemId);
+      setItemNameDraft(item.name);
+      setItemContentDraft(item.content);
+    },
+    [project],
+  );
 
-  const saveItem = async (itemId: string) => {
+  const handleDeleteProjectItem = useCallback(
+    (itemId: string) => {
+      if (!project) return;
+      void onDeleteItem(project.id, itemId);
+    },
+    [project, onDeleteItem],
+  );
+
+  const cancelItemEdit = useCallback(() => {
+    setEditingItemId(null);
+    setItemNameDraft("");
+    setItemContentDraft("");
+  }, []);
+
+  const commitItemEdit = useCallback(async () => {
+    if (!project || !editingItemId) return;
     if (!itemContentDraft.trim()) {
       message.warning("内容为必填项");
       return;
     }
-    await onUpdateItem(project.id, itemId, {
+    await onUpdateItem(project.id, editingItemId, {
       name: itemNameDraft,
       content: itemContentDraft,
     });
     setEditingItemId(null);
     setItemNameDraft("");
     setItemContentDraft("");
-  };
+  }, [project, editingItemId, itemContentDraft, itemNameDraft, onUpdateItem]);
+
+  if (!project) {
+    return <Empty description="请选择左侧项目查看条目" />;
+  }
 
   const handleAddItem = async () => {
     const newId = await onAddItem(project.id);
@@ -56,8 +104,8 @@ export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="flex items-center justify-between gap-3 rounded border border-solid border-gray-200 p-3">
-        <Space>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-solid border-gray-200 p-3">
+        <Space wrap>
           <Typography.Text strong>{project.name}</Typography.Text>
           <SyncBadge status={project.syncStatus} />
         </Space>
@@ -70,72 +118,39 @@ export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
         </Space>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded border border-solid border-gray-200 p-3">
+      <div className="min-h-0 flex-1 overflow-auto rounded border border-solid border-gray-100">
         {project.items.length === 0 ? (
           <Empty description="暂无条目，点击右上角新增（含站点下挂到此项目的条目）" />
         ) : (
-          <Space direction="vertical" className="w-full" size="middle">
-            {project.items.map((item) => {
-              const editing = editingItemId === item.id;
-              const fromSite = Boolean(item.siteId);
+          <div className="w-full">
+            {project.items.map((item, index) => {
+              const sectionStart = isSiteSectionStart(project.items, index);
               return (
-                <div key={item.id} className="rounded border border-solid border-gray-200 p-3">
-                  {!editing ? (
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <Typography.Text strong>{item.name || "（未命名）"}</Typography.Text>
-                        {fromSite ? (
-                          <Typography.Text type="secondary" className="ml-2">
-                            [站点条目]
-                          </Typography.Text>
-                        ) : null}
-                        <div>
-                          <SyncBadge status={item.syncStatus} />
-                        </div>
-                        <div className="mt-2 whitespace-pre-wrap text-gray-700">{item.content || "-"}</div>
-                      </div>
-                      <Space>
-                        <Button
-                          icon={<EditOutlined />}
-                          onClick={() => startEditItem(item.id, item.name, item.content)}
-                        >
-                          编辑
-                        </Button>
-                        <Button danger icon={<DeleteOutlined />} onClick={() => onDeleteItem(project.id, item.id)}>
-                          删除
-                        </Button>
-                      </Space>
-                    </div>
-                  ) : (
-                    <Space direction="vertical" className="w-full">
-                      <Input
-                        value={itemNameDraft}
-                        onChange={(e) => setItemNameDraft(e.target.value)}
-                        placeholder="名称（非必填）"
-                      />
-                      <Input.TextArea
-                        value={itemContentDraft}
-                        onChange={(e) => setItemContentDraft(e.target.value)}
-                        placeholder="内容（必填）"
-                        autoSize={{ minRows: 3, maxRows: 8 }}
-                      />
-                      <Space>
-                        <Button
-                          type="primary"
-                          icon={<SaveOutlined />}
-                          disabled={!canSaveItem}
-                          onClick={() => void saveItem(item.id)}
-                        >
-                          保存
-                        </Button>
-                        <Button onClick={() => setEditingItemId(null)}>取消</Button>
-                      </Space>
-                    </Space>
-                  )}
-                </div>
+                <Fragment key={item.id}>
+                  {sectionStart ? (
+                    <SiteSectionHeadingBar
+                      text={formatSiteSectionHeading(item)}
+                      showTopDivider={index > 0}
+                    />
+                  ) : null}
+                  <ItemArticleRow
+                    item={item}
+                    isEditing={editingItemId === item.id}
+                    itemNameDraft={itemNameDraft}
+                    itemContentDraft={itemContentDraft}
+                    onItemNameChange={setItemNameDraft}
+                    onItemContentChange={setItemContentDraft}
+                    canSaveItem={canSaveItem}
+                    onSave={commitItemEdit}
+                    onCancelEdit={cancelItemEdit}
+                    onCopy={handleCopyProjectItem}
+                    onEdit={handleEditProjectItem}
+                    onDelete={handleDeleteProjectItem}
+                  />
+                </Fragment>
               );
             })}
-          </Space>
+          </div>
         )}
       </div>
     </div>

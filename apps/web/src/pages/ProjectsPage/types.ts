@@ -8,6 +8,9 @@ export type ProjectItem = {
   cloudId?: string;
   /** 若有站点，则为挂在站点下的条目；纯项目条目为空 */
   siteId?: string | null;
+  /** 站点条目展示用：来自 db.sites */
+  siteAddress?: string;
+  siteName?: string;
 };
 
 export type ProjectVM = {
