@@ -1,5 +1,5 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { db, propagateSiteProjectToItems } from "@my-notes/local-db";
 import { createId, nextSyncAfterEdit } from "@my-notes/shared";
@@ -14,22 +14,31 @@ import {
 import type { Site, SiteItem } from "../types";
 
 export function useSitesState() {
-  const projectRows = useLiveQuery(() => db.projects.toArray(), []) ?? [];
-  const siteRows = useLiveQuery(() => db.sites.toArray(), []) ?? [];
-  const itemRows = useLiveQuery(() => db.site_items.toArray(), []) ?? [];
-  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  /** 单次订阅三张表，避免三个 useLiveQuery 在冷启动各触发一轮渲染 */
+  const sitesDbBundle = useLiveQuery(
+    () =>
+      Promise.all([db.projects.toArray(), db.sites.toArray(), db.site_items.toArray()]).then(
+        ([projectRows, siteRows, itemRows]) => ({ projectRows, siteRows, itemRows }),
+      ),
+    [],
+  );
+  /** 首次 useLiveQuery 未返回前为 false，用于页面级 Loading，避免空数据闪一下主界面 */
+  const isLocalDbReady = sitesDbBundle !== undefined;
+  const projectRows = sitesDbBundle?.projectRows ?? [];
+  const siteRows = sitesDbBundle?.siteRows ?? [];
+  const itemRows = sitesDbBundle?.itemRows ?? [];
+  /** 用户显式选中的站点；null 表示尚未指定，由下方派生为列表首项 */
+  const [pickedSiteId, setPickedSiteId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [projectFilterId, setProjectFilterId] = useState<string | "all">("all");
 
-  useEffect(() => {
-    if (siteRows.length === 0) {
-      if (selectedSiteId !== null) setSelectedSiteId(null);
-      return;
+  const selectedSiteId = useMemo(() => {
+    if (siteRows.length === 0) return null;
+    if (pickedSiteId && siteRows.some((site) => site.id === pickedSiteId)) {
+      return pickedSiteId;
     }
-    if (!selectedSiteId || !siteRows.some((site) => site.id === selectedSiteId)) {
-      setSelectedSiteId(siteRows[0].id);
-    }
-  }, [selectedSiteId, siteRows]);
+    return siteRows[0].id;
+  }, [pickedSiteId, siteRows]);
 
   const sites = useMemo<Site[]>(() => {
     return siteRows.map((site) => ({
@@ -83,7 +92,7 @@ export function useSitesState() {
       version: 1,
       syncStatus: "local_only",
     });
-    setSelectedSiteId(siteId);
+    setPickedSiteId(siteId);
   }, []);
 
   const cloneSite = useCallback(async (sourceSiteId: string, payload: { name: string; address: string }) => {
@@ -112,7 +121,7 @@ export function useSitesState() {
         });
       }
     });
-    setSelectedSiteId(siteId);
+    setPickedSiteId(siteId);
   }, []);
 
   type SiteRemoteOpts = { authToken?: string | null; apiBase?: string };
@@ -201,6 +210,7 @@ export function useSitesState() {
   }, []);
 
   return {
+    isLocalDbReady,
     sites,
     filteredSites,
     selectedSite,
@@ -210,7 +220,7 @@ export function useSitesState() {
     projectFilterId,
     setProjectFilterId,
     projectOptions,
-    setSelectedSiteId,
+    setSelectedSiteId: setPickedSiteId,
     addSite,
     cloneSite,
     removeSite,

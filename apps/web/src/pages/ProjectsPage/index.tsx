@@ -1,6 +1,8 @@
-import { App, Splitter } from "antd";
-import { useCallback } from "react";
+import { App, Spin, Splitter } from "antd";
+import { useCallback, useEffect, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
+import type { ProjectsSearchNavigationState } from "@/types/globalSearchNavigation";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 import { ProjectDetailPanel } from "./components/ProjectDetailPanel";
@@ -10,7 +12,15 @@ import { useProjectsState } from "./hooks/useProjectsState";
 export function ProjectsPage() {
   const { message } = App.useApp();
   const token = useAuthStore((s) => s.token);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { focusProjectId, focusItemId } = useMemo(() => {
+    const s = location.state as ProjectsSearchNavigationState | undefined;
+    return { focusProjectId: s?.focusProjectId, focusItemId: s?.focusItemId };
+  }, [location.state]);
+
   const {
+    isLocalDbReady,
     filteredProjects,
     selectedProject,
     selectedProjectId,
@@ -27,6 +37,20 @@ export function ProjectsPage() {
     pullProjectData,
     syncAllWithConflict,
   } = useProjectsState();
+
+  useEffect(() => {
+    if (focusProjectId) setSelectedProjectId(focusProjectId);
+  }, [focusProjectId, setSelectedProjectId]);
+
+  useEffect(() => {
+    if (focusItemId) return;
+    if (!focusProjectId) return;
+    navigate(".", { replace: true, state: {} });
+  }, [navigate, focusItemId, focusProjectId]);
+
+  const clearProjectsNavState = useCallback(() => {
+    navigate(".", { replace: true, state: {} });
+  }, [navigate]);
 
   const handleCreateProject = useCallback(
     async (payload: { name: string }) => {
@@ -100,6 +124,14 @@ export function ProjectsPage() {
     [message, removeItem, token],
   );
 
+  if (!isLocalDbReady) {
+    return (
+      <div className="flex h-full min-h-[240px] items-center justify-center">
+        <Spin size="large" />
+      </div>
+    );
+  }
+  console.log(33333, focusProjectId, focusItemId);
   return (
     <>
       <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
@@ -128,6 +160,8 @@ export function ProjectsPage() {
             onDeleteItem={handleDeleteItem}
             onSync={handleSync}
             onPull={handlePull}
+            focusItemId={focusItemId}
+            onFocusItemConsumed={focusItemId ? clearProjectsNavState : undefined}
           />
         </div>
       </Splitter.Panel>

@@ -1,6 +1,8 @@
 import { Empty, Input, Space, Splitter } from "antd";
 import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+
+import type { NotesSearchNavigationState } from "@/types/globalSearchNavigation";
 
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { db } from "@my-notes/local-db";
@@ -13,8 +15,17 @@ import { useNoteCommands } from "./hooks/useNoteCommands";
 
 export function NotesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { saveNote, deleteNote } = useNoteCommands();
   const [selection, setSelection] = useState<NotesTreeSelection | null>(null);
+  const focusNoteId = useMemo(
+    () => (location.state as NotesSearchNavigationState | undefined)?.focusNoteId,
+    [location.state],
+  );
+
+  const handleFocusNoteConsumed = useCallback(() => {
+    navigate(".", { replace: true, state: {} });
+  }, [navigate]);
 
   const handleSelectionChange = useCallback((s: NotesTreeSelection) => {
     setSelection(s);
@@ -72,7 +83,11 @@ export function NotesPage() {
     <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
       <Splitter.Panel defaultSize={280} min={240} max={480}>
         <div className="h-full p-3">
-          <NotesFolderTree onSelectionChange={handleSelectionChange} />
+          <NotesFolderTree
+            onSelectionChange={handleSelectionChange}
+            focusNoteId={focusNoteId}
+            onFocusNoteConsumed={focusNoteId ? handleFocusNoteConsumed : undefined}
+          />
         </div>
       </Splitter.Panel>
       <Splitter.Panel>

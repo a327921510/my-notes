@@ -1,6 +1,8 @@
-import { App, Splitter } from "antd";
-import { useCallback } from "react";
+import { App, Spin, Splitter } from "antd";
+import { useCallback, useEffect, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
+import type { SitesSearchNavigationState } from "@/types/globalSearchNavigation";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 import { SiteDetailPanel } from "./components/SiteDetailPanel";
@@ -10,7 +12,14 @@ import { useSitesState } from "./hooks/useSitesState";
 export function SitesPage() {
   const { message } = App.useApp();
   const token = useAuthStore((s) => s.token);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { focusSiteId, focusItemId } = useMemo(() => {
+    const s = location.state as SitesSearchNavigationState | undefined;
+    return { focusSiteId: s?.focusSiteId, focusItemId: s?.focusItemId };
+  }, [location.state]);
   const {
+    isLocalDbReady,
     filteredSites,
     selectedSite,
     selectedSiteId,
@@ -31,6 +40,20 @@ export function SitesPage() {
     pullSiteData,
     syncAllWithConflict,
   } = useSitesState();
+
+  useEffect(() => {
+    if (focusSiteId) setSelectedSiteId(focusSiteId);
+  }, [focusSiteId, setSelectedSiteId]);
+
+  useEffect(() => {
+    if (focusItemId) return;
+    if (!focusSiteId) return;
+    navigate(".", { replace: true, state: {} });
+  }, [navigate, focusItemId, focusSiteId]);
+
+  const clearSitesNavState = useCallback(() => {
+    navigate(".", { replace: true, state: {} });
+  }, [navigate]);
 
   const handleCreateSite = useCallback(
     async (payload: { name: string; address: string; projectId?: string | null }) => {
@@ -97,6 +120,14 @@ export function SitesPage() {
     [message, removeItem, token],
   );
 
+  if (!isLocalDbReady) {
+    return (
+      <div className="flex h-full min-h-[240px] items-center justify-center">
+        <Spin size="large" />
+      </div>
+    );
+  }
+  console.log(33333, focusSiteId, focusItemId);
   return (
     <>
       <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
@@ -130,6 +161,8 @@ export function SitesPage() {
               onPull={handlePull}
               onCloneSite={cloneSite}
               onSiteProjectChange={setSiteProjectId}
+              focusItemId={focusItemId}
+              onFocusItemConsumed={focusItemId ? clearSitesNavState : undefined}
             />
           </div>
         </Splitter.Panel>

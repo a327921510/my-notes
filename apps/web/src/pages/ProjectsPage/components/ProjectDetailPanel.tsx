@@ -1,6 +1,6 @@
 import { PlusOutlined } from "@ant-design/icons";
 import { Button, Empty, Space, Typography, message } from "antd";
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ItemArticleRow, formatItemArticleCopyLine } from "@/components/ItemArticleRow";
 import { SiteSectionHeadingBar } from "@/components/SiteSectionHeadingBar";
@@ -15,6 +15,8 @@ export type ProjectDetailPanelProps = {
   onDeleteItem: (projectId: string, itemId: string) => Promise<void>;
   onSync: () => Promise<void>;
   onPull: () => Promise<void>;
+  focusItemId?: string;
+  onFocusItemConsumed?: () => void;
 };
 
 /** 当前行是否为「站点分组」的第一条（与前一条 siteId 不同或列表首条） */
@@ -32,10 +34,16 @@ function formatSiteSectionHeading(item: ProjectItem): string {
 }
 
 export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
-  const { project, onAddItem, onUpdateItem, onDeleteItem, onSync, onPull } = props;
+  const { project, onAddItem, onUpdateItem, onDeleteItem, onSync, onPull, focusItemId, onFocusItemConsumed } =
+    props;
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemNameDraft, setItemNameDraft] = useState("");
   const [itemContentDraft, setItemContentDraft] = useState("");
+  const focusItemConsumedRef = useRef(false);
+
+  useEffect(() => {
+    focusItemConsumedRef.current = false;
+  }, [focusItemId]);
 
   const canSaveItem = useMemo(() => itemContentDraft.trim().length > 0, [itemContentDraft]);
 
@@ -90,6 +98,21 @@ export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
     setItemNameDraft("");
     setItemContentDraft("");
   }, [project, editingItemId, itemContentDraft, itemNameDraft, onUpdateItem]);
+
+  useEffect(() => {
+    if (!focusItemId || focusItemConsumedRef.current || !project) return;
+    const item = project.items.find((i) => i.id === focusItemId);
+    if (!item) {
+      focusItemConsumedRef.current = true;
+      onFocusItemConsumed?.();
+      return;
+    }
+    setEditingItemId(focusItemId);
+    setItemNameDraft(item.name);
+    setItemContentDraft(item.content);
+    focusItemConsumedRef.current = true;
+    onFocusItemConsumed?.();
+  }, [focusItemId, onFocusItemConsumed, project]);
 
   if (!project) {
     return <Empty description="请选择左侧项目查看条目" />;

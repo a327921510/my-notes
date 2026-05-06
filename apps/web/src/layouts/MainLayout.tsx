@@ -10,6 +10,7 @@ import { Avatar, Dropdown, Layout, Menu, Space, Typography } from "antd";
 import { Suspense, useMemo } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { GlobalEntrySearch } from "@/components/GlobalEntrySearch";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 const { Header, Content } = Layout;
@@ -88,11 +89,13 @@ export function MainLayout() {
             navigate(key);
           }}
         />
-        <Dropdown
-          menu={{ items: loggedInMenuItems }}
-          trigger={["hover"]}
-          placement="bottomRight"
-        >
+        <div className="flex min-w-0 shrink-0 items-center gap-2 py-1">
+          <GlobalEntrySearch />
+          <Dropdown
+            menu={{ items: loggedInMenuItems }}
+            trigger={["hover"]}
+            placement="bottomRight"
+          >
           <Space className="cursor-pointer select-none py-1 h-full" size={8}>
             <Avatar icon={<UserOutlined />} />
             {user ? (
@@ -104,6 +107,7 @@ export function MainLayout() {
             )}
           </Space>
         </Dropdown>
+        </div>
       </div>
       <Content>
         <Suspense>

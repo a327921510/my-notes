@@ -1,6 +1,6 @@
 import { PlusOutlined } from "@ant-design/icons";
 import { Button, Empty, Input, Modal, Select, Space, Typography, message } from "antd";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ItemArticleRow, formatItemArticleCopyLine } from "@/components/ItemArticleRow";
 import { SyncBadge } from "@/components/SyncBadge";
 import type { Site } from "../types";
@@ -15,17 +15,35 @@ export type SiteDetailPanelProps = {
   onPull: () => Promise<void>;
   onCloneSite: (sourceSiteId: string, payload: { name: string; address: string }) => Promise<void>;
   onSiteProjectChange: (siteId: string, projectId: string | null) => Promise<void>;
+  focusItemId?: string;
+  onFocusItemConsumed?: () => void;
 };
 
 export function SiteDetailPanel(props: SiteDetailPanelProps) {
-  const { site, projectOptions, onAddItem, onUpdateItem, onDeleteItem, onSync, onPull, onCloneSite, onSiteProjectChange } =
-    props;
+  const {
+    site,
+    projectOptions,
+    onAddItem,
+    onUpdateItem,
+    onDeleteItem,
+    onSync,
+    onPull,
+    onCloneSite,
+    onSiteProjectChange,
+    focusItemId,
+    onFocusItemConsumed,
+  } = props;
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemNameDraft, setItemNameDraft] = useState("");
   const [itemContentDraft, setItemContentDraft] = useState("");
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyName, setCopyName] = useState("");
   const [copyAddress, setCopyAddress] = useState("");
+  const focusItemConsumedRef = useRef(false);
+
+  useEffect(() => {
+    focusItemConsumedRef.current = false;
+  }, [focusItemId]);
 
   const canSaveItem = useMemo(() => itemContentDraft.trim().length > 0, [itemContentDraft]);
 
@@ -74,6 +92,21 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
     setItemNameDraft("");
     setItemContentDraft("");
   }, [site, editingItemId, itemContentDraft, itemNameDraft, onUpdateItem]);
+
+  useEffect(() => {
+    if (!focusItemId || focusItemConsumedRef.current || !site) return;
+    const item = site.items.find((i) => i.id === focusItemId);
+    if (!item) {
+      focusItemConsumedRef.current = true;
+      onFocusItemConsumed?.();
+      return;
+    }
+    setEditingItemId(focusItemId);
+    setItemNameDraft(item.name);
+    setItemContentDraft(item.content);
+    focusItemConsumedRef.current = true;
+    onFocusItemConsumed?.();
+  }, [focusItemId, onFocusItemConsumed, site]);
 
   if (!site) {
     return <Empty description="请选择左侧站点查看详情" />;

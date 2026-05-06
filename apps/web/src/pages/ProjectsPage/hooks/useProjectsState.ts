@@ -1,5 +1,5 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { db, propagateSiteProjectToItems } from "@my-notes/local-db";
 import { createId, nextSyncAfterEdit } from "@my-notes/shared";
@@ -50,21 +50,30 @@ function sortProjectItemsForDisplay(items: ProjectItem[]): ProjectItem[] {
 }
 
 export function useProjectsState() {
-  const projectRows = useLiveQuery(() => db.projects.toArray(), []) ?? [];
-  const siteRows = useLiveQuery(() => db.sites.toArray(), []) ?? [];
-  const itemRows = useLiveQuery(() => db.site_items.toArray(), []) ?? [];
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  /** 单次订阅三张表，避免三个 useLiveQuery 在冷启动各触发一轮渲染 */
+  const projectsDbBundle = useLiveQuery(
+    () =>
+      Promise.all([db.projects.toArray(), db.sites.toArray(), db.site_items.toArray()]).then(
+        ([projectRows, siteRows, itemRows]) => ({ projectRows, siteRows, itemRows }),
+      ),
+    [],
+  );
+  /** 首次 useLiveQuery 未返回前为 false，用于页面级 Loading，避免空数据闪一下主界面 */
+  const isLocalDbReady = projectsDbBundle !== undefined;
+  const projectRows = projectsDbBundle?.projectRows ?? [];
+  const siteRows = projectsDbBundle?.siteRows ?? [];
+  const itemRows = projectsDbBundle?.itemRows ?? [];
+  /** 用户显式选中的项目；null 表示尚未指定，由下方派生为列表首项 */
+  const [pickedProjectId, setPickedProjectId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
 
-  useEffect(() => {
-    if (projectRows.length === 0) {
-      if (selectedProjectId !== null) setSelectedProjectId(null);
-      return;
+  const selectedProjectId = useMemo(() => {
+    if (projectRows.length === 0) return null;
+    if (pickedProjectId && projectRows.some((p) => p.id === pickedProjectId)) {
+      return pickedProjectId;
     }
-    if (!selectedProjectId || !projectRows.some((p) => p.id === selectedProjectId)) {
-      setSelectedProjectId(projectRows[0].id);
-    }
-  }, [selectedProjectId, projectRows]);
+    return projectRows[0].id;
+  }, [pickedProjectId, projectRows]);
 
   const projects = useMemo<ProjectVM[]>(() => {
     return projectRows.map((row) => ({
@@ -111,7 +120,7 @@ export function useProjectsState() {
       updatedAt: Date.now(),
       syncStatus: "local_only",
     });
-    setSelectedProjectId(id);
+    setPickedProjectId(id);
   }, []);
 
   const updateProjectName = useCallback(async (projectId: string, name: string) => {
@@ -203,13 +212,14 @@ export function useProjectsState() {
   }, []);
 
   return {
+    isLocalDbReady,
     projects,
     filteredProjects,
     selectedProject,
     selectedProjectId,
     searchKeyword,
     setSearchKeyword,
-    setSelectedProjectId,
+    setSelectedProjectId: setPickedProjectId,
     addProject,
     updateProjectName,
     removeProject,

@@ -40,9 +40,15 @@ export type NotesTreeSelection = {
 
 export type NotesFolderTreeProps = {
   onSelectionChange: (selection: NotesTreeSelection) => void;
+  focusNoteId?: string;
+  onFocusNoteConsumed?: () => void;
 };
 
-export const NotesFolderTree = memo(function NotesFolderTree({ onSelectionChange }: NotesFolderTreeProps) {
+export const NotesFolderTree = memo(function NotesFolderTree({
+  onSelectionChange,
+  focusNoteId,
+  onFocusNoteConsumed,
+}: NotesFolderTreeProps) {
   const { folders, addFolder, renameFolder, deleteFolder } = useFolderState();
   const { notes } = useNotesList();
   const { createNote } = useNoteCommands();
@@ -53,6 +59,11 @@ export const NotesFolderTree = memo(function NotesFolderTree({ onSelectionChange
   const onSelectionChangeRef = useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
   const lastPushedSelection = useRef<NotesTreeSelection | null>(null);
+  const focusNoteConsumedRef = useRef(false);
+
+  useEffect(() => {
+    focusNoteConsumedRef.current = false;
+  }, [focusNoteId]);
 
   useEffect(() => {
     void (async () => {
@@ -116,6 +127,27 @@ export const NotesFolderTree = memo(function NotesFolderTree({ onSelectionChange
       setSelectedNoteId(list[0].id);
     }
   }, [notes, selectedNoteId]);
+
+  useEffect(() => {
+    if (!focusNoteId || focusNoteConsumedRef.current || !notes?.length) return;
+    const note = notes.find((n) => n.id === focusNoteId);
+    if (!note) {
+      focusNoteConsumedRef.current = true;
+      onFocusNoteConsumed?.();
+      return;
+    }
+    if (note.folderId) {
+      setFolderId(note.folderId);
+      setExpandedKeys((prev) => {
+        const fk = `folder:${note.folderId}`;
+        if (prev.includes(fk)) return prev;
+        return [...prev, fk];
+      });
+    }
+    setSelectedNoteId(note.id);
+    focusNoteConsumedRef.current = true;
+    onFocusNoteConsumed?.();
+  }, [focusNoteId, notes, onFocusNoteConsumed]);
 
   const selectedNote = useMemo(() => {
     if (!selectedNoteId || !notes?.length) return null;
