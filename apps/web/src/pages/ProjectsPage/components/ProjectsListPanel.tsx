@@ -3,8 +3,6 @@ import {
   CloudUploadOutlined,
   DeleteOutlined,
   EditOutlined,
-  ExportOutlined,
-  ImportOutlined,
   PlusOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
@@ -26,8 +24,6 @@ export type ProjectsListPanelProps = {
   onRenameProject: (projectId: string, name: string) => Promise<void>;
   onPullFromCloud: () => Promise<void>;
   onPushToCloud: () => Promise<void>;
-  onExportBackup: () => void | Promise<void>;
-  onImportBackup: () => void;
 };
 
 export function ProjectsListPanel(props: ProjectsListPanelProps) {
@@ -42,8 +38,6 @@ export function ProjectsListPanel(props: ProjectsListPanelProps) {
     onRenameProject,
     onPullFromCloud,
     onPushToCloud,
-    onExportBackup,
-    onImportBackup,
   } = props;
   const [searchInput, setSearchInput] = useState(searchKeyword);
   const [createOpen, setCreateOpen] = useState(false);
@@ -86,8 +80,6 @@ export function ProjectsListPanel(props: ProjectsListPanelProps) {
         <Space size={4}>
           <Button type="text" icon={<CloudDownloadOutlined />} onClick={() => void onPullFromCloud()} />
           <Button type="text" icon={<CloudUploadOutlined />} onClick={() => void onPushToCloud()} />
-          <Button type="text" icon={<ExportOutlined />} title="导出站点与项目 JSON" onClick={() => void onExportBackup()} />
-          <Button type="text" icon={<ImportOutlined />} title="导入站点与项目 JSON" onClick={onImportBackup} />
           <Button type="text" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} />
         </Space>
       </div>

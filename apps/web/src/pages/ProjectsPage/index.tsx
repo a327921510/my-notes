@@ -1,7 +1,6 @@
 import { App, Splitter } from "antd";
 import { useCallback } from "react";
 
-import { useSiteProjectBackup } from "@/hooks/useSiteProjectBackup";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 import { ProjectDetailPanel } from "./components/ProjectDetailPanel";
@@ -11,7 +10,6 @@ import { useProjectsState } from "./hooks/useProjectsState";
 export function ProjectsPage() {
   const { message } = App.useApp();
   const token = useAuthStore((s) => s.token);
-  const backup = useSiteProjectBackup();
   const {
     filteredProjects,
     selectedProject,
@@ -104,7 +102,6 @@ export function ProjectsPage() {
 
   return (
     <>
-      <input {...backup.importInputProps} />
       <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
       <Splitter.Panel defaultSize={320} min={260} max={480}>
         <div className="h-full p-3">
@@ -119,8 +116,6 @@ export function ProjectsPage() {
             onRenameProject={handleRenameProject}
             onPullFromCloud={handlePullFromCloud}
             onPushToCloud={handlePushToCloud}
-            onExportBackup={backup.exportBackup}
-            onImportBackup={backup.openImportPicker}
           />
         </div>
       </Splitter.Panel>
