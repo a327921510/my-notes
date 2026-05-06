@@ -64,6 +64,15 @@ export interface ClipRecord {
   status: string;
 }
 
+/** 项目（站点/条目分类与筛选；字段可后续扩展） */
+export type ProjectRecord = {
+  id: string;
+  name: string;
+  updatedAt: number;
+  syncStatus: SyncStatus;
+  cloudId?: string;
+};
+
 export const SNIPPET_TYPE_LABELS: Record<SnippetType, string> = {
   account: "账号",
   password: "密码",

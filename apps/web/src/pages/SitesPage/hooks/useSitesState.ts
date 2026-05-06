@@ -1,7 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { db } from "@my-notes/local-db";
+import { db, propagateSiteProjectToItems } from "@my-notes/local-db";
 import { createId, nextSyncAfterEdit } from "@my-notes/shared";
 import {
   deleteSiteItemOnCloud,
@@ -14,10 +14,12 @@ import {
 import type { Site, SiteItem } from "../types";
 
 export function useSitesState() {
+  const projectRows = useLiveQuery(() => db.projects.toArray(), []) ?? [];
   const siteRows = useLiveQuery(() => db.sites.toArray(), []) ?? [];
   const itemRows = useLiveQuery(() => db.site_items.toArray(), []) ?? [];
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [projectFilterId, setProjectFilterId] = useState<string | "all">("all");
 
   useEffect(() => {
     if (siteRows.length === 0) {
@@ -29,45 +31,54 @@ export function useSitesState() {
     }
   }, [selectedSiteId, siteRows]);
 
-  const sites = useMemo<Site[]>(
-    () =>
-      siteRows.map((site) => ({
-        id: site.id,
-        name: site.name,
-        address: site.address,
-        version: site.version ?? 1,
-        syncStatus: site.syncStatus,
-        cloudId: site.cloudId,
-        items: itemRows
-          .filter((item) => item.siteId === site.id)
-          .map<SiteItem>((item) => ({
-            id: item.id,
-            name: item.name,
-            content: item.content,
-            syncStatus: item.syncStatus,
-            cloudId: item.cloudId,
-          })),
-      })),
-    [itemRows, siteRows],
-  );
+  const sites = useMemo<Site[]>(() => {
+    return siteRows.map((site) => ({
+      id: site.id,
+      name: site.name,
+      address: site.address,
+      projectId: site.projectId ?? null,
+      version: site.version ?? 1,
+      syncStatus: site.syncStatus,
+      cloudId: site.cloudId,
+      items: itemRows
+        .filter((item) => item.siteId === site.id)
+        .map<SiteItem>((item) => ({
+          id: item.id,
+          name: item.name,
+          content: item.content,
+          syncStatus: item.syncStatus,
+          cloudId: item.cloudId,
+        })),
+    }));
+  }, [itemRows, siteRows]);
 
   const filteredSites = useMemo(() => {
+    let list = sites;
+    if (projectFilterId !== "all") {
+      list = list.filter((site) => (site.projectId ?? null) === projectFilterId);
+    }
     const keyword = searchKeyword.trim().toLowerCase();
-    if (!keyword) return sites;
-    return sites.filter((site) => site.name.toLowerCase().includes(keyword));
-  }, [searchKeyword, sites]);
+    if (!keyword) return list;
+    return list.filter((site) => site.name.toLowerCase().includes(keyword));
+  }, [projectFilterId, searchKeyword, sites]);
 
   const selectedSite = useMemo(
     () => sites.find((site) => site.id === selectedSiteId) ?? null,
     [selectedSiteId, sites],
   );
 
-  const addSite = useCallback(async (payload: { name: string; address: string }) => {
+  const projectOptions = useMemo(
+    () => projectRows.map((p) => ({ value: p.id, label: p.name })),
+    [projectRows],
+  );
+
+  const addSite = useCallback(async (payload: { name: string; address: string; projectId?: string | null }) => {
     const siteId = createId("site");
     await db.sites.add({
       id: siteId,
       name: payload.name.trim(),
       address: payload.address.trim(),
+      projectId: payload.projectId ?? undefined,
       updatedAt: Date.now(),
       version: 1,
       syncStatus: "local_only",
@@ -77,12 +88,14 @@ export function useSitesState() {
 
   const cloneSite = useCallback(async (sourceSiteId: string, payload: { name: string; address: string }) => {
     const siteId = createId("site");
+    const sourceSite = await db.sites.get(sourceSiteId);
     const sourceItems = await db.site_items.where("siteId").equals(sourceSiteId).toArray();
     await db.transaction("rw", db.sites, db.site_items, async () => {
       await db.sites.add({
         id: siteId,
         name: payload.name.trim(),
         address: payload.address.trim(),
+        projectId: sourceSite?.projectId,
         updatedAt: Date.now(),
         version: 1,
         syncStatus: "local_only",
@@ -91,6 +104,7 @@ export function useSitesState() {
         await db.site_items.add({
           id: createId("item"),
           siteId,
+          projectId: sourceSite?.projectId,
           name: item.name,
           content: item.content,
           updatedAt: Date.now(),
@@ -114,11 +128,26 @@ export function useSitesState() {
     });
   }, []);
 
+  const setSiteProjectId = useCallback(async (siteId: string, projectId: string | null) => {
+    const site = await db.sites.get(siteId);
+    if (!site) return;
+    const nextPid = projectId ?? undefined;
+    await db.sites.update(siteId, {
+      projectId: nextPid,
+      updatedAt: Date.now(),
+      syncStatus: nextSyncAfterEdit(site.syncStatus),
+      version: site.version ?? 1,
+    });
+    await propagateSiteProjectToItems(db, siteId, nextPid ?? null);
+  }, []);
+
   const addItem = useCallback(async (siteId: string) => {
+    const site = await db.sites.get(siteId);
     const id = createId("item");
     await db.site_items.add({
       id,
       siteId,
+      projectId: site?.projectId,
       name: "",
       content: "",
       updatedAt: Date.now(),
@@ -178,10 +207,14 @@ export function useSitesState() {
     selectedSiteId,
     searchKeyword,
     setSearchKeyword,
+    projectFilterId,
+    setProjectFilterId,
+    projectOptions,
     setSelectedSiteId,
     addSite,
     cloneSite,
     removeSite,
+    setSiteProjectId,
     addItem,
     updateItem,
     removeItem,

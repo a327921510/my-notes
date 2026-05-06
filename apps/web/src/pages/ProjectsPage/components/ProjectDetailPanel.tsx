@@ -1,51 +1,31 @@
 import { DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined } from "@ant-design/icons";
-import { Button, Empty, Input, Modal, Popconfirm, Select, Space, Typography, message } from "antd";
+import { Button, Empty, Input, Space, Typography, message } from "antd";
 import { useMemo, useState } from "react";
-import { SyncBadge } from "@/components/SyncBadge";
-import type { Site } from "../types";
 
-export type SiteDetailPanelProps = {
-  site: Site | null;
-  projectOptions: { value: string; label: string }[];
-  onAddItem: (siteId: string) => Promise<string>;
-  onUpdateItem: (siteId: string, itemId: string, payload: { name: string; content: string }) => Promise<void>;
-  onDeleteItem: (siteId: string, itemId: string) => Promise<void>;
+import { SyncBadge } from "@/components/SyncBadge";
+
+import type { ProjectVM } from "../types";
+
+export type ProjectDetailPanelProps = {
+  project: ProjectVM | null;
+  onAddItem: (projectId: string) => Promise<string>;
+  onUpdateItem: (projectId: string, itemId: string, payload: { name: string; content: string }) => Promise<void>;
+  onDeleteItem: (projectId: string, itemId: string) => Promise<void>;
   onSync: () => Promise<void>;
   onPull: () => Promise<void>;
-  onCloneSite: (sourceSiteId: string, payload: { name: string; address: string }) => Promise<void>;
-  onSiteProjectChange: (siteId: string, projectId: string | null) => Promise<void>;
 };
 
-export function SiteDetailPanel(props: SiteDetailPanelProps) {
-  const { site, projectOptions, onAddItem, onUpdateItem, onDeleteItem, onSync, onPull, onCloneSite, onSiteProjectChange } =
-    props;
+export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
+  const { project, onAddItem, onUpdateItem, onDeleteItem, onSync, onPull } = props;
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemNameDraft, setItemNameDraft] = useState("");
   const [itemContentDraft, setItemContentDraft] = useState("");
-  const [copyOpen, setCopyOpen] = useState(false);
-  const [copyName, setCopyName] = useState("");
-  const [copyAddress, setCopyAddress] = useState("");
 
   const canSaveItem = useMemo(() => itemContentDraft.trim().length > 0, [itemContentDraft]);
 
-  if (!site) {
-    return <Empty description="请选择左侧站点查看详情" />;
+  if (!project) {
+    return <Empty description="请选择左侧项目查看条目" />;
   }
-
-  const openCopyModal = () => {
-    setCopyName(`${site.name}-副本`);
-    setCopyAddress(site.address);
-    setCopyOpen(true);
-  };
-
-  const handleClone = async () => {
-    if (!copyName.trim()) {
-      message.warning("站点名称不能为空");
-      return;
-    }
-    await onCloneSite(site.id, { name: copyName, address: copyAddress });
-    setCopyOpen(false);
-  };
 
   const startEditItem = (itemId: string, currentName: string, currentContent: string) => {
     setEditingItemId(itemId);
@@ -58,7 +38,7 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
       message.warning("内容为必填项");
       return;
     }
-    await onUpdateItem(site.id, itemId, {
+    await onUpdateItem(project.id, itemId, {
       name: itemNameDraft,
       content: itemContentDraft,
     });
@@ -68,7 +48,7 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
   };
 
   const handleAddItem = async () => {
-    const newId = await onAddItem(site.id);
+    const newId = await onAddItem(project.id);
     setEditingItemId(newId);
     setItemNameDraft("");
     setItemContentDraft("");
@@ -76,21 +56,12 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-solid border-gray-200 p-3">
-        <Space wrap>
-          <Typography.Text strong>{site.address || "未设置站点地址"}</Typography.Text>
-          <SyncBadge status={site.syncStatus} />
-          <Select
-            className="min-w-[180px]"
-            allowClear
-            placeholder="绑定项目（筛选）"
-            value={site.projectId ?? undefined}
-            options={projectOptions}
-            onChange={(v) => void onSiteProjectChange(site.id, v ?? null)}
-          />
+      <div className="flex items-center justify-between gap-3 rounded border border-solid border-gray-200 p-3">
+        <Space>
+          <Typography.Text strong>{project.name}</Typography.Text>
+          <SyncBadge status={project.syncStatus} />
         </Space>
         <Space>
-          <Button onClick={openCopyModal}>复制站点信息</Button>
           <Button onClick={() => void onPull()}>拉取云端</Button>
           <Button onClick={() => void onSync()}>同步到云端</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => void handleAddItem()}>
@@ -98,33 +69,26 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
           </Button>
         </Space>
       </div>
-      <Modal
-        title="复制站点信息"
-        open={copyOpen}
-        onCancel={() => setCopyOpen(false)}
-        onOk={() => void handleClone()}
-        okText="创建"
-        cancelText="取消"
-      >
-        <Space direction="vertical" className="w-full">
-          <Input value={copyName} onChange={(e) => setCopyName(e.target.value)} placeholder="站点名称" />
-          <Input value={copyAddress} onChange={(e) => setCopyAddress(e.target.value)} placeholder="站点地址" />
-        </Space>
-      </Modal>
 
       <div className="min-h-0 flex-1 overflow-auto rounded border border-solid border-gray-200 p-3">
-        {site.items.length === 0 ? (
-          <Empty description="暂无条目，点击右上角新增" />
+        {project.items.length === 0 ? (
+          <Empty description="暂无条目，点击右上角新增（含站点下挂到此项目的条目）" />
         ) : (
           <Space direction="vertical" className="w-full" size="middle">
-            {site.items.map((item) => {
+            {project.items.map((item) => {
               const editing = editingItemId === item.id;
+              const fromSite = Boolean(item.siteId);
               return (
                 <div key={item.id} className="rounded border border-solid border-gray-200 p-3">
                   {!editing ? (
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <Typography.Text strong>{item.name || "（未命名）"}</Typography.Text>
+                        {fromSite ? (
+                          <Typography.Text type="secondary" className="ml-2">
+                            [站点条目]
+                          </Typography.Text>
+                        ) : null}
                         <div>
                           <SyncBadge status={item.syncStatus} />
                         </div>
@@ -137,17 +101,9 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
                         >
                           编辑
                         </Button>
-                        <Popconfirm
-                          title="确认删除该条目？"
-                          description="删除后不可恢复"
-                          okText="确认"
-                          cancelText="取消"
-                          onConfirm={() => onDeleteItem(site.id, item.id)}
-                        >
-                          <Button danger icon={<DeleteOutlined />}>
-                            删除
-                          </Button>
-                        </Popconfirm>
+                        <Button danger icon={<DeleteOutlined />} onClick={() => onDeleteItem(project.id, item.id)}>
+                          删除
+                        </Button>
                       </Space>
                     </div>
                   ) : (

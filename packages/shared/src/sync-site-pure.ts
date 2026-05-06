@@ -7,7 +7,9 @@ export type CloudSitePayload = {
   cloudId: string;
   clientSiteId: string;
   name: string;
+  /** 允许为空字符串 */
   address: string;
+  clientProjectId?: string | null;
   version: number;
   updatedAt: number;
 };
@@ -15,7 +17,10 @@ export type CloudSitePayload = {
 export type CloudSiteItemPayload = {
   cloudId: string;
   clientItemId: string;
-  clientSiteId: string;
+  /** 与条目关联的站点；纯项目条目可为空 */
+  clientSiteId?: string | null;
+  /** 冗余项目 id，与站点 project 或纯项目条目一致 */
+  clientProjectId?: string | null;
   name: string;
   content: string;
   updatedAt: number;
@@ -25,6 +30,7 @@ export type LocalSiteRow = {
   id: string;
   name: string;
   address: string;
+  projectId?: string | null;
   version: number;
   updatedAt: number;
   syncStatus: string;
@@ -33,7 +39,8 @@ export type LocalSiteRow = {
 
 export type LocalSiteItemRow = {
   id: string;
-  siteId: string;
+  siteId?: string | null;
+  projectId?: string | null;
   name: string;
   content: string;
   updatedAt: number;
@@ -42,7 +49,11 @@ export type LocalSiteItemRow = {
 };
 
 export function hasSiteConflict(local: LocalSiteRow, remote: CloudSitePayload): boolean {
-  return local.name !== remote.name || local.address !== remote.address;
+  return (
+    local.name !== remote.name ||
+    local.address !== remote.address ||
+    (local.projectId ?? null) !== (remote.clientProjectId ?? null)
+  );
 }
 
 export function hasSiteItemConflict(
@@ -52,7 +63,8 @@ export function hasSiteItemConflict(
   return (
     local.name !== remote.name ||
     local.content !== remote.content ||
-    local.siteId !== remote.clientSiteId
+    (local.siteId ?? null) !== (remote.clientSiteId ?? null) ||
+    (local.projectId ?? null) !== (remote.clientProjectId ?? null)
   );
 }
 

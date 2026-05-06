@@ -8,6 +8,7 @@ export type {
   StoredNote,
   StoredNoteImage,
   StoredSnippet,
+  StoredProject,
   StoredSite,
   StoredSiteItem,
   StoredDriveFolder,

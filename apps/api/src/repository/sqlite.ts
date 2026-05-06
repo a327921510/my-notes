@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type Database from "better-sqlite3";
 
 import type { DrizzleDB } from "../db/client.js";
@@ -9,6 +9,7 @@ import type {
   StoredDriveFolder,
   StoredNote,
   StoredNoteImage,
+  StoredProject,
   StoredSite,
   StoredSiteItem,
   StoredSnippet,
@@ -20,6 +21,7 @@ export function createSqliteRepository(
   sqlite: Database.Database,
 ): Repository {
   runMigrations(sqlite);
+  migrateSiteProjectsV1(sqlite);
 
   return {
     /* ── Users ───────────────────────────────────────────────── */
@@ -158,12 +160,97 @@ export function createSqliteRepository(
         .run();
     },
 
+    /* ── Projects ──────────────────────────────────────────── */
+    getProjectByCloudId(cloudId) {
+      const row = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.cloudId, cloudId))
+        .get();
+      return row ? toProject(row) : undefined;
+    },
+
+    listProjectsByUser(userId) {
+      return db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.userId, userId))
+        .all()
+        .map(toProject);
+    },
+
+    upsertProject(project) {
+      db.insert(schema.projects)
+        .values({
+          cloudId: project.cloudId,
+          userId: project.userId,
+          clientProjectId: project.clientProjectId,
+          name: project.name,
+          updatedAt: project.updatedAt,
+        })
+        .onConflictDoUpdate({
+          target: schema.projects.cloudId,
+          set: {
+            name: project.name,
+            updatedAt: project.updatedAt,
+          },
+        })
+        .run();
+    },
+
+    deleteProjectForUser(userId, clientProjectId) {
+      const cloudId = `pr_${clientProjectId}`;
+      const existing = db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.cloudId, cloudId))
+        .get();
+      if (!existing || existing.userId !== userId) return;
+      sqlite.transaction(() => {
+        db.delete(schema.siteItems)
+          .where(
+            and(
+              eq(schema.siteItems.userId, userId),
+              eq(schema.siteItems.clientProjectId, clientProjectId),
+              isNull(schema.siteItems.clientSiteId),
+            ),
+          )
+          .run();
+        db.update(schema.siteItems)
+          .set({ clientProjectId: null })
+          .where(
+            and(
+              eq(schema.siteItems.userId, userId),
+              eq(schema.siteItems.clientProjectId, clientProjectId),
+              isNotNull(schema.siteItems.clientSiteId),
+            ),
+          )
+          .run();
+        db.update(schema.sites)
+          .set({ clientProjectId: null })
+          .where(
+            and(eq(schema.sites.userId, userId), eq(schema.sites.clientProjectId, clientProjectId)),
+          )
+          .run();
+        db.delete(schema.projects).where(eq(schema.projects.cloudId, cloudId)).run();
+      })();
+    },
+
     /* ── Sites ─────────────────────────────────────────────── */
     getSiteByCloudId(cloudId) {
       const row = db
         .select()
         .from(schema.sites)
         .where(eq(schema.sites.cloudId, cloudId))
+        .get();
+      return row ? toSite(row) : undefined;
+    },
+
+    getSiteByClientId(userId, clientSiteId) {
+      const row = db
+        .select()
+        .from(schema.sites)
+        .where(and(eq(schema.sites.userId, userId), eq(schema.sites.clientSiteId, clientSiteId)))
         .get();
       return row ? toSite(row) : undefined;
     },
@@ -202,6 +289,7 @@ export function createSqliteRepository(
           clientSiteId: site.clientSiteId,
           name: site.name,
           address: site.address,
+          clientProjectId: site.clientProjectId ?? null,
           version: site.version,
           updatedAt: site.updatedAt,
         })
@@ -210,6 +298,7 @@ export function createSqliteRepository(
           set: {
             name: site.name,
             address: site.address,
+            clientProjectId: site.clientProjectId ?? null,
             version: site.version,
             updatedAt: site.updatedAt,
           },
@@ -248,7 +337,8 @@ export function createSqliteRepository(
           cloudId: item.cloudId,
           userId: item.userId,
           clientItemId: item.clientItemId,
-          clientSiteId: item.clientSiteId,
+          clientSiteId: item.clientSiteId ?? null,
+          clientProjectId: item.clientProjectId ?? null,
           name: item.name,
           content: item.content,
           updatedAt: item.updatedAt,
@@ -256,6 +346,8 @@ export function createSqliteRepository(
         .onConflictDoUpdate({
           target: schema.siteItems.cloudId,
           set: {
+            clientSiteId: item.clientSiteId ?? null,
+            clientProjectId: item.clientProjectId ?? null,
             name: item.name,
             content: item.content,
             updatedAt: item.updatedAt,
@@ -443,24 +535,34 @@ function runMigrations(sqlite: Database.Database) {
       updated_at         INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS projects (
+      cloud_id          TEXT PRIMARY KEY,
+      user_id           TEXT NOT NULL,
+      client_project_id TEXT NOT NULL,
+      name              TEXT NOT NULL,
+      updated_at        INTEGER NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS sites (
-      cloud_id        TEXT PRIMARY KEY,
-      user_id         TEXT NOT NULL,
-      client_site_id  TEXT NOT NULL,
-      name            TEXT NOT NULL,
-      address         TEXT NOT NULL,
-      version         INTEGER NOT NULL DEFAULT 1,
-      updated_at      INTEGER NOT NULL
+      cloud_id          TEXT PRIMARY KEY,
+      user_id           TEXT NOT NULL,
+      client_site_id    TEXT NOT NULL,
+      name              TEXT NOT NULL,
+      address           TEXT NOT NULL,
+      client_project_id TEXT,
+      version           INTEGER NOT NULL DEFAULT 1,
+      updated_at        INTEGER NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS site_items (
-      cloud_id        TEXT PRIMARY KEY,
-      user_id         TEXT NOT NULL,
-      client_item_id  TEXT NOT NULL,
-      client_site_id  TEXT NOT NULL,
-      name            TEXT NOT NULL,
-      content         TEXT NOT NULL,
-      updated_at      INTEGER NOT NULL
+      cloud_id          TEXT PRIMARY KEY,
+      user_id           TEXT NOT NULL,
+      client_item_id    TEXT NOT NULL,
+      client_site_id    TEXT,
+      client_project_id TEXT,
+      name              TEXT NOT NULL,
+      content           TEXT NOT NULL,
+      updated_at        INTEGER NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS drive_folders (
@@ -494,12 +596,82 @@ function runMigrations(sqlite: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
     CREATE INDEX IF NOT EXISTS idx_note_images_note_cloud_id ON note_images(note_cloud_id);
     CREATE INDEX IF NOT EXISTS idx_snippets_user_id ON snippets(user_id);
+    CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
     CREATE INDEX IF NOT EXISTS idx_sites_user_id ON sites(user_id);
     CREATE INDEX IF NOT EXISTS idx_site_items_user_id ON site_items(user_id);
     CREATE INDEX IF NOT EXISTS idx_site_items_client_site_id ON site_items(client_site_id);
+    -- client_project_id 索引须在 migrateSiteProjectsV1 补齐列后再建（旧库尚无该列）
     CREATE INDEX IF NOT EXISTS idx_drive_folders_user_id ON drive_folders(user_id);
     CREATE INDEX IF NOT EXISTS idx_drive_files_user_id ON drive_files(user_id);
   `);
+}
+
+/** 已有数据库升级：补充 projects / 站点项目绑定 / 可空站点条目的列与索引 */
+function migrateSiteProjectsV1(sqlite: Database.Database) {
+  sqlite.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY);`);
+  const done = sqlite.prepare("SELECT 1 FROM schema_migrations WHERE version = ?").get("202602_site_projects_v1");
+  if (done) return;
+
+  sqlite.transaction(() => {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS projects (
+        cloud_id          TEXT PRIMARY KEY,
+        user_id           TEXT NOT NULL,
+        client_project_id TEXT NOT NULL,
+        name              TEXT NOT NULL,
+        updated_at        INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
+    `);
+
+    const siteCols = sqlite.prepare("PRAGMA table_info(sites)").all() as { name: string }[];
+    if (!siteCols.some((c) => c.name === "client_project_id")) {
+      sqlite.exec(`ALTER TABLE sites ADD COLUMN client_project_id TEXT;`);
+    }
+
+    const itemCols = sqlite.prepare("PRAGMA table_info(site_items)").all() as { name: string }[];
+    if (!itemCols.some((c) => c.name === "client_project_id")) {
+      sqlite.exec(`ALTER TABLE site_items ADD COLUMN client_project_id TEXT;`);
+    }
+
+    const master = sqlite
+      .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='site_items'")
+      .get() as { sql: string } | undefined;
+    const needsRebuild = master?.sql?.includes("client_site_id TEXT NOT NULL") ?? false;
+    if (needsRebuild) {
+      sqlite.exec(`
+        CREATE TABLE site_items__new (
+          cloud_id          TEXT PRIMARY KEY,
+          user_id           TEXT NOT NULL,
+          client_item_id    TEXT NOT NULL,
+          client_site_id    TEXT,
+          client_project_id TEXT,
+          name              TEXT NOT NULL,
+          content           TEXT NOT NULL,
+          updated_at        INTEGER NOT NULL
+        );
+        INSERT INTO site_items__new (
+          cloud_id, user_id, client_item_id, client_site_id, client_project_id,
+          name, content, updated_at
+        )
+        SELECT
+          cloud_id, user_id, client_item_id, client_site_id, NULL,
+          name, content, updated_at
+        FROM site_items;
+        DROP TABLE site_items;
+        ALTER TABLE site_items__new RENAME TO site_items;
+        CREATE INDEX IF NOT EXISTS idx_site_items_user_id ON site_items(user_id);
+        CREATE INDEX IF NOT EXISTS idx_site_items_client_site_id ON site_items(client_site_id);
+        CREATE INDEX IF NOT EXISTS idx_site_items_client_project_id ON site_items(client_project_id);
+      `);
+    } else {
+      sqlite.exec(`
+        CREATE INDEX IF NOT EXISTS idx_site_items_client_project_id ON site_items(client_project_id);
+      `);
+    }
+
+    sqlite.prepare("INSERT INTO schema_migrations (version) VALUES (?)").run("202602_site_projects_v1");
+  })();
 }
 
 function toUser(row: typeof schema.users.$inferSelect): StoredUser {
@@ -553,6 +725,16 @@ function toSnippet(row: typeof schema.snippets.$inferSelect): StoredSnippet {
   };
 }
 
+function toProject(row: typeof schema.projects.$inferSelect): StoredProject {
+  return {
+    userId: row.userId,
+    clientProjectId: row.clientProjectId,
+    cloudId: row.cloudId,
+    name: row.name,
+    updatedAt: row.updatedAt,
+  };
+}
+
 function toSite(row: typeof schema.sites.$inferSelect): StoredSite {
   return {
     userId: row.userId,
@@ -560,6 +742,7 @@ function toSite(row: typeof schema.sites.$inferSelect): StoredSite {
     cloudId: row.cloudId,
     name: row.name,
     address: row.address,
+    clientProjectId: row.clientProjectId ?? undefined,
     version: row.version,
     updatedAt: row.updatedAt,
   };
@@ -569,7 +752,8 @@ function toSiteItem(row: typeof schema.siteItems.$inferSelect): StoredSiteItem {
   return {
     userId: row.userId,
     clientItemId: row.clientItemId,
-    clientSiteId: row.clientSiteId,
+    clientSiteId: row.clientSiteId ?? undefined,
+    clientProjectId: row.clientProjectId ?? undefined,
     cloudId: row.cloudId,
     name: row.name,
     content: row.content,

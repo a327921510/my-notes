@@ -3,50 +3,53 @@ import { useCallback } from "react";
 
 import { useAuthStore } from "@/stores/useAuthStore";
 
-import { SiteDetailPanel } from "./components/SiteDetailPanel";
-import { SitesListPanel } from "./components/SitesListPanel";
-import { useSitesState } from "./hooks/useSitesState";
+import { ProjectDetailPanel } from "./components/ProjectDetailPanel";
+import { ProjectsListPanel } from "./components/ProjectsListPanel";
+import { useProjectsState } from "./hooks/useProjectsState";
 
-export function SitesPage() {
+export function ProjectsPage() {
   const { message } = App.useApp();
   const token = useAuthStore((s) => s.token);
   const {
-    filteredSites,
-    selectedSite,
-    selectedSiteId,
+    filteredProjects,
+    selectedProject,
+    selectedProjectId,
     searchKeyword,
     setSearchKeyword,
-    projectFilterId,
-    setProjectFilterId,
-    projectOptions,
-    setSelectedSiteId,
-    addSite,
-    cloneSite,
-    removeSite,
-    setSiteProjectId,
+    setSelectedProjectId,
+    addProject,
+    updateProjectName,
+    removeProject,
     addItem,
     updateItem,
     removeItem,
-    syncSiteData,
-    pullSiteData,
+    syncProjectData,
+    pullProjectData,
     syncAllWithConflict,
-  } = useSitesState();
+  } = useProjectsState();
 
-  const handleCreateSite = useCallback(
-    async (payload: { name: string; address: string; projectId?: string | null }) => {
-      await addSite(payload);
+  const handleCreateProject = useCallback(
+    async (payload: { name: string }) => {
+      await addProject(payload);
     },
-    [addSite],
+    [addProject],
+  );
+
+  const handleRenameProject = useCallback(
+    async (projectId: string, name: string) => {
+      await updateProjectName(projectId, name);
+    },
+    [updateProjectName],
   );
 
   const handleSync = useCallback(async () => {
     try {
-      await syncSiteData(token, selectedSite?.id ?? null);
-      message.success("站点数据同步完成");
+      await syncProjectData(token);
+      message.success("项目与站点数据同步完成");
     } catch (e) {
       message.error((e as Error).message);
     }
-  }, [message, selectedSite?.id, syncSiteData, token]);
+  }, [message, syncProjectData, token]);
 
   const handlePullFromCloud = useCallback(async () => {
     try {
@@ -59,37 +62,37 @@ export function SitesPage() {
 
   const handlePushToCloud = useCallback(async () => {
     try {
-      await syncSiteData(token);
-      message.success("已同步全部本地站点数据到云端");
+      await syncProjectData(token);
+      message.success("已同步全部本地数据到云端");
     } catch (e) {
       message.error((e as Error).message);
     }
-  }, [message, syncSiteData, token]);
+  }, [message, syncProjectData, token]);
 
   const handlePull = useCallback(async () => {
     try {
-      const res = await pullSiteData(token);
+      const res = await pullProjectData(token);
       message.success(`拉取完成：项目 ${res.projectsApplied}，站点 ${res.sitesApplied}，条目 ${res.itemsApplied}`);
     } catch (e) {
       message.error((e as Error).message);
     }
-  }, [message, pullSiteData, token]);
+  }, [message, pullProjectData, token]);
 
-  const handleDeleteSite = useCallback(
-    async (siteId: string) => {
+  const handleDeleteProject = useCallback(
+    async (projectId: string) => {
       try {
-        await removeSite(siteId, { authToken: token });
+        await removeProject(projectId, { authToken: token });
       } catch (e) {
         message.error((e as Error).message);
       }
     },
-    [message, removeSite, token],
+    [message, removeProject, token],
   );
 
   const handleDeleteItem = useCallback(
-    async (siteId: string, itemId: string) => {
+    async (projectId: string, itemId: string) => {
       try {
-        await removeItem(siteId, itemId, { authToken: token });
+        await removeItem(projectId, itemId, { authToken: token });
       } catch (e) {
         message.error((e as Error).message);
       }
@@ -101,17 +104,15 @@ export function SitesPage() {
     <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
       <Splitter.Panel defaultSize={320} min={260} max={480}>
         <div className="h-full p-3">
-          <SitesListPanel
-            sites={filteredSites}
-            selectedSiteId={selectedSiteId}
+          <ProjectsListPanel
+            projects={filteredProjects}
+            selectedProjectId={selectedProjectId}
             searchKeyword={searchKeyword}
-            projectFilterId={projectFilterId}
-            projectOptions={projectOptions}
             onSearch={setSearchKeyword}
-            onProjectFilterChange={setProjectFilterId}
-            onSelectSite={setSelectedSiteId}
-            onCreateSite={handleCreateSite}
-            onDeleteSite={handleDeleteSite}
+            onSelectProject={setSelectedProjectId}
+            onCreateProject={handleCreateProject}
+            onDeleteProject={handleDeleteProject}
+            onRenameProject={handleRenameProject}
             onPullFromCloud={handlePullFromCloud}
             onPushToCloud={handlePushToCloud}
           />
@@ -119,16 +120,13 @@ export function SitesPage() {
       </Splitter.Panel>
       <Splitter.Panel>
         <div className="h-full p-3">
-          <SiteDetailPanel
-            site={selectedSite}
-            projectOptions={projectOptions}
+          <ProjectDetailPanel
+            project={selectedProject}
             onAddItem={addItem}
             onUpdateItem={updateItem}
             onDeleteItem={handleDeleteItem}
             onSync={handleSync}
             onPull={handlePull}
-            onCloneSite={cloneSite}
-            onSiteProjectChange={setSiteProjectId}
           />
         </div>
       </Splitter.Panel>
@@ -136,4 +134,4 @@ export function SitesPage() {
   );
 }
 
-export default SitesPage;
+export default ProjectsPage;

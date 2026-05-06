@@ -42,12 +42,22 @@ export const snippets = sqliteTable("snippets", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+export const projects = sqliteTable("projects", {
+  cloudId: text("cloud_id").primaryKey(),
+  userId: text("user_id").notNull(),
+  clientProjectId: text("client_project_id").notNull(),
+  name: text("name").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
 export const sites = sqliteTable("sites", {
   cloudId: text("cloud_id").primaryKey(),
   userId: text("user_id").notNull(),
   clientSiteId: text("client_site_id").notNull(),
   name: text("name").notNull(),
+  /** 允许空字符串 */
   address: text("address").notNull(),
+  clientProjectId: text("client_project_id"),
   version: integer("version").notNull().default(1),
   updatedAt: integer("updated_at").notNull(),
 });
@@ -56,7 +66,8 @@ export const siteItems = sqliteTable("site_items", {
   cloudId: text("cloud_id").primaryKey(),
   userId: text("user_id").notNull(),
   clientItemId: text("client_item_id").notNull(),
-  clientSiteId: text("client_site_id").notNull(),
+  clientSiteId: text("client_site_id"),
+  clientProjectId: text("client_project_id"),
   name: text("name").notNull(),
   content: text("content").notNull(),
   updatedAt: integer("updated_at").notNull(),

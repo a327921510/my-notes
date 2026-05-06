@@ -1,16 +1,21 @@
 import { CloudDownloadOutlined, CloudUploadOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
-import { Button, Input, List, Modal, Popconfirm, Space, Typography } from "antd";
-import { SyncBadge } from "@/components/SyncBadge";
+import { Button, Input, List, Modal, Popconfirm, Select, Space, Typography } from "antd";
 import { useMemo, useState } from "react";
+
+import { SyncBadge } from "@/components/SyncBadge";
+
 import type { Site } from "../types";
 
-type SitesListPanelProps = {
+export type SitesListPanelProps = {
   sites: Site[];
   selectedSiteId: string | null;
   searchKeyword: string;
+  projectFilterId: string | "all";
+  projectOptions: { value: string; label: string }[];
   onSearch: (keyword: string) => void;
+  onProjectFilterChange: (projectId: string | "all") => void;
   onSelectSite: (siteId: string) => void;
-  onCreateSite: (payload: { name: string; address: string }) => Promise<void>;
+  onCreateSite: (payload: { name: string; address: string; projectId?: string | null }) => Promise<void>;
   onDeleteSite: (siteId: string) => Promise<void>;
   onPullFromCloud: () => Promise<void>;
   onPushToCloud: () => Promise<void>;
@@ -21,7 +26,10 @@ export function SitesListPanel(props: SitesListPanelProps) {
     sites,
     selectedSiteId,
     searchKeyword,
+    projectFilterId,
+    projectOptions,
     onSearch,
+    onProjectFilterChange,
     onSelectSite,
     onCreateSite,
     onDeleteSite,
@@ -32,18 +40,30 @@ export function SitesListPanel(props: SitesListPanelProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [newSiteName, setNewSiteName] = useState("");
   const [newSiteAddress, setNewSiteAddress] = useState("");
+  const [newSiteProjectId, setNewSiteProjectId] = useState<string | null>(null);
 
   const selectedSiteName = useMemo(
     () => sites.find((site) => site.id === selectedSiteId)?.name ?? "",
     [selectedSiteId, sites],
   );
 
+  const projectLabelMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of projectOptions) m.set(o.value, o.label);
+    return m;
+  }, [projectOptions]);
+
   const handleCreate = async () => {
-    if (!newSiteName.trim() || !newSiteAddress.trim()) return;
-    await onCreateSite({ name: newSiteName, address: newSiteAddress });
+    if (!newSiteName.trim()) return;
+    await onCreateSite({
+      name: newSiteName,
+      address: newSiteAddress,
+      projectId: newSiteProjectId,
+    });
     setCreateOpen(false);
     setNewSiteName("");
     setNewSiteAddress("");
+    setNewSiteProjectId(null);
   };
 
   return (
@@ -58,6 +78,16 @@ export function SitesListPanel(props: SitesListPanelProps) {
           <Button type="text" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} />
         </Space>
       </div>
+
+      <Select
+        className="w-full"
+        value={projectFilterId}
+        onChange={(v) => onProjectFilterChange(v)}
+        options={[
+          { value: "all", label: "全部项目" },
+          ...projectOptions.map((o) => ({ value: o.value, label: o.label })),
+        ]}
+      />
 
       <Space.Compact className="w-full">
         <Input
@@ -78,6 +108,7 @@ export function SitesListPanel(props: SitesListPanelProps) {
           locale={{ emptyText: "暂无站点" }}
           renderItem={(site) => {
             const active = site.id === selectedSiteId;
+            const pLabel = site.projectId ? projectLabelMap.get(site.projectId) : null;
             return (
               <List.Item
                 style={{
@@ -90,6 +121,11 @@ export function SitesListPanel(props: SitesListPanelProps) {
                 <div className="flex w-full items-center justify-between gap-3">
                   <div className="min-w-0">
                     <Typography.Text strong={active}>{site.name}</Typography.Text>
+                    {pLabel ? (
+                      <Typography.Text type="secondary" className="ml-1">
+                        · {pLabel}
+                      </Typography.Text>
+                    ) : null}
                     <div>
                       <SyncBadge status={site.syncStatus} />
                     </div>
@@ -125,7 +161,7 @@ export function SitesListPanel(props: SitesListPanelProps) {
         onOk={handleCreate}
         okText="创建"
         cancelText="取消"
-        okButtonProps={{ disabled: !newSiteName.trim() || !newSiteAddress.trim() }}
+        okButtonProps={{ disabled: !newSiteName.trim() }}
       >
         <Space direction="vertical" className="w-full">
           <Input
@@ -136,7 +172,15 @@ export function SitesListPanel(props: SitesListPanelProps) {
           <Input
             value={newSiteAddress}
             onChange={(e) => setNewSiteAddress(e.target.value)}
-            placeholder="站点地址（必填）"
+            placeholder="站点地址（选填）"
+          />
+          <Select
+            className="w-full"
+            allowClear
+            placeholder="绑定项目（选填）"
+            value={newSiteProjectId}
+            onChange={(v) => setNewSiteProjectId(v ?? null)}
+            options={projectOptions}
           />
         </Space>
       </Modal>

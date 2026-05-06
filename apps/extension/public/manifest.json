@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "My Notes · 站点短文本",
   "description": "网页短文本采集；IndexedDB 与 Web 同结构，登录后手动拉取/推送与云端对齐。",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "background": {
     "service_worker": "background.js",
     "type": "module"

@@ -1,4 +1,5 @@
 import {
+  AppstoreOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   GlobalOutlined,
@@ -17,6 +18,7 @@ const { Header, Content } = Layout;
 const NAV_ITEMS = [
   { key: "/", label: "笔记区", icon: <FileTextOutlined /> },
   { key: "/sites", label: "站点信息区", icon: <GlobalOutlined /> },
+  { key: "/projects", label: "项目信息区", icon: <AppstoreOutlined /> },
   { key: "/cloud-drive", label: "云盘", icon: <FolderOpenOutlined /> },
 ] as const;
 

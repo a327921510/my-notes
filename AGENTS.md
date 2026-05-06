@@ -19,6 +19,7 @@
 - **凡形成或变更的需求**，最终应**汇总进 `docs/`**（见 `docs/开发文档.md` §0.4）；代理在对话中达成结论后，应推动或补全对应文档。
 - 梳理需求时：识别是否**明确要求**工程版本升级；若无明确要求但存在**契约/格式/兼容性**等实质变化，应**提示是否建议**升级 `package.json` 中的版本并更新 `docs/version-manifest.json`。
 - Web 页面分层（入口 / 区域组件 / Hook / 纯展示），范例目录 `apps/web/src/pages/PageLayeringDemo/`；执行细则见 `.cursor/rules/page-layering.mdc` 与 `docs/开发文档.md` 第 3.1.2 节。
+- **本地 IndexedDB**：`@my-notes/local-db` 导出 `NOTES_DB_NAME`（当前为 `my_notes_v2`），Dexie 仅声明 `version(1)`；Web 与扩展各 origin 各一份库，与 PRD/开发文档 §8.1 一致。
 
 ## Cursor Rules / Skills 适用范围
 

@@ -89,5 +89,5 @@
 ## 6. 技术与配置约束
 
 - 扩展端请求后端需使用绝对 API 基址（如 `VITE_API_BASE`）。
-- 本地存储使用 IndexedDB（Dexie），沿用既有 `my_notes_v1` schema 与迁移链。
+- 本地存储使用 IndexedDB（Dexie），与 Web 共用 **`@my-notes/local-db`**：库名 **`my_notes_v2`**（`NOTES_DB_NAME`），**单版本 `version(1)` schema**，与 Web 表结构一致。
 - 若历史版本存在 `chrome.storage` 数据，首次启动执行一次性迁移后再进入列表渲染。

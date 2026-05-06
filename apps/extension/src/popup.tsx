@@ -307,9 +307,11 @@ function Popup() {
     }
     const siteId = selectedSiteId ?? (await ensureSiteForCurrentDomain());
     if (!selectedSiteId) setSelectedSiteId(siteId);
+    const siteRow = await db.sites.get(siteId);
     await db.site_items.add({
       id: createId("item"),
       siteId,
+      projectId: siteRow?.projectId,
       name: newItemName.trim(),
       content: newItemContent,
       updatedAt: Date.now(),

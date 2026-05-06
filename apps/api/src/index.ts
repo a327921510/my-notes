@@ -150,6 +150,7 @@ async function main() {
       req.url.startsWith("/api/upload") ||
       req.url.startsWith("/api/notes") ||
       req.url.startsWith("/api/snippets") ||
+      req.url.startsWith("/api/projects") ||
       req.url.startsWith("/api/sites") ||
       req.url.startsWith("/api/site-items") ||
       req.url.startsWith("/api/drive") ||
@@ -341,11 +342,58 @@ async function main() {
     return { ok: true };
   });
 
+  app.get("/api/projects", async (req) => {
+    const user = req.user as UserPayload;
+    const items = repo.listProjectsByUser(user.sub).map((p) => ({
+      cloudId: p.cloudId,
+      clientProjectId: p.clientProjectId,
+      name: p.name,
+      updatedAt: p.updatedAt,
+    }));
+    return { items };
+  });
+
+  app.post<{
+    Body: {
+      clientProjectId: string;
+      name: string;
+      updatedAt: number;
+    };
+  }>("/api/projects/upsert", async (req, reply) => {
+    const user = req.user as UserPayload;
+    const b = req.body;
+    if (!b?.clientProjectId) return reply.status(400).send({ message: "缺少 clientProjectId" });
+    const name = (b.name ?? "").trim();
+    if (!name) return reply.status(400).send({ message: "项目名称不能为空" });
+    const cloudId = `pr_${b.clientProjectId}`;
+    repo.upsertProject({
+      userId: user.sub,
+      clientProjectId: b.clientProjectId,
+      cloudId,
+      name,
+      updatedAt: b.updatedAt ?? Date.now(),
+    });
+    return { cloudId };
+  });
+
+  app.delete<{ Params: { clientProjectId: string } }>("/api/projects/:clientProjectId", async (req, reply) => {
+    const user = req.user as UserPayload;
+    const { clientProjectId } = req.params;
+    const cloudId = `pr_${clientProjectId}`;
+    const p = repo.getProjectByCloudId(cloudId);
+    if (!p || p.userId !== user.sub) {
+      return reply.status(404).send({ message: "未找到云端项目" });
+    }
+    repo.deleteProjectForUser(user.sub, clientProjectId);
+    return { ok: true };
+  });
+
   app.post<{
     Body: {
       clientSiteId: string;
       name: string;
       address: string;
+      clientProjectId?: string | null;
       updatedAt: number;
     };
   }>("/api/sites/upsert", async (req, reply) => {
@@ -354,20 +402,22 @@ async function main() {
     if (!b?.clientSiteId) return reply.status(400).send({ message: "缺少 clientSiteId" });
     const nextName = (b.name ?? "").trim();
     const nextAddress = (b.address ?? "").trim();
-    if (!nextName || !nextAddress) {
-      return reply.status(400).send({ message: "站点名称和地址不能为空" });
+    if (!nextName) {
+      return reply.status(400).send({ message: "站点名称不能为空" });
     }
     const duplicated = repo.findDuplicateSite(user.sub, b.clientSiteId, nextName, nextAddress);
     if (duplicated) {
       return reply.status(409).send({ message: "站点名称和地址组合已存在" });
     }
     const cloudId = `st_${b.clientSiteId}`;
+    const rawProj = (b.clientProjectId ?? "").trim();
     repo.upsertSite({
       userId: user.sub,
       clientSiteId: b.clientSiteId,
       cloudId,
       name: nextName,
       address: nextAddress,
+      clientProjectId: rawProj.length > 0 ? rawProj : null,
       version: 1,
       updatedAt: b.updatedAt ?? Date.now(),
     });
@@ -379,9 +429,16 @@ async function main() {
       clientSiteId: string;
       name: string;
       address: string;
+      clientProjectId?: string | null;
       expectedVersion: number;
       updatedAt: number;
-      items: { clientItemId: string; name: string; content: string; updatedAt: number }[];
+      items: {
+        clientItemId: string;
+        name: string;
+        content: string;
+        updatedAt: number;
+        clientProjectId?: string | null;
+      }[];
     };
   }>("/api/sites/push-full", async (req, reply) => {
     const user = req.user as UserPayload;
@@ -389,8 +446,8 @@ async function main() {
     if (!b?.clientSiteId) return reply.status(400).send({ message: "缺少 clientSiteId" });
     const nextName = (b.name ?? "").trim();
     const nextAddress = (b.address ?? "").trim();
-    if (!nextName || !nextAddress) {
-      return reply.status(400).send({ message: "站点名称和地址不能为空" });
+    if (!nextName) {
+      return reply.status(400).send({ message: "站点名称不能为空" });
     }
     const duplicated = repo.findDuplicateSite(user.sub, b.clientSiteId, nextName, nextAddress);
     if (duplicated) {
@@ -404,12 +461,15 @@ async function main() {
       return reply.status(409).send({ message: "版本不一致，请先拉取云端数据" });
     }
     const nextVersion = remoteVersion + 1;
+    const rawSiteProj = (b.clientProjectId ?? "").trim();
+    const siteProjectId = rawSiteProj.length > 0 ? rawSiteProj : null;
     repo.upsertSite({
       userId: user.sub,
       clientSiteId: b.clientSiteId,
       cloudId,
       name: nextName,
       address: nextAddress,
+      clientProjectId: siteProjectId,
       version: nextVersion,
       updatedAt: b.updatedAt ?? Date.now(),
     });
@@ -418,10 +478,14 @@ async function main() {
     for (const item of b.items ?? []) {
       if (!item?.clientItemId) continue;
       const itemCloudId = `si_${item.clientItemId}`;
+      const rawItemProj = (item.clientProjectId ?? "").trim();
+      const itemProjectId =
+        rawItemProj.length > 0 ? rawItemProj : siteProjectId ?? undefined;
       repo.upsertSiteItem({
         userId: user.sub,
         clientItemId: item.clientItemId,
         clientSiteId: b.clientSiteId,
+        clientProjectId: itemProjectId ?? null,
         cloudId: itemCloudId,
         name: item.name ?? "",
         content: item.content ?? "",
@@ -438,6 +502,7 @@ async function main() {
       clientSiteId: s.clientSiteId,
       name: s.name,
       address: s.address,
+      clientProjectId: s.clientProjectId ?? null,
       version: s.version ?? 1,
       updatedAt: s.updatedAt,
     }));
@@ -460,7 +525,8 @@ async function main() {
   app.post<{
     Body: {
       clientItemId: string;
-      clientSiteId: string;
+      clientSiteId?: string | null;
+      clientProjectId?: string | null;
       name: string;
       content: string;
       updatedAt: number;
@@ -469,12 +535,43 @@ async function main() {
     const user = req.user as UserPayload;
     const b = req.body;
     if (!b?.clientItemId) return reply.status(400).send({ message: "缺少 clientItemId" });
-    if (!b?.clientSiteId) return reply.status(400).send({ message: "缺少 clientSiteId" });
+    const rawSite = (b.clientSiteId ?? "").trim();
+    const rawProjBody = (b.clientProjectId ?? "").trim();
+    const hasSite = rawSite.length > 0;
+    const hasProjOnly = rawProjBody.length > 0;
+    if (!hasSite && !hasProjOnly) {
+      return reply.status(400).send({ message: "条目必须关联站点或项目" });
+    }
+
+    let resolvedSiteId: string | undefined;
+    let resolvedProjectId: string | undefined;
+
+    if (hasSite) {
+      const siteRow = repo.getSiteByClientId(user.sub, rawSite);
+      if (!siteRow) {
+        return reply.status(400).send({ message: "站点不存在，请先同步站点" });
+      }
+      resolvedSiteId = rawSite;
+      const sp = siteRow.clientProjectId?.trim();
+      resolvedProjectId = sp && sp.length > 0 ? sp : undefined;
+    } else {
+      const projRow = repo.getProjectByCloudId(`pr_${rawProjBody}`);
+      if (!projRow || projRow.userId !== user.sub) {
+        return reply.status(400).send({ message: "项目不存在，请先同步项目" });
+      }
+      resolvedProjectId = rawProjBody;
+    }
+
+    if (!resolvedSiteId && !resolvedProjectId) {
+      return reply.status(400).send({ message: "条目必须关联站点或项目" });
+    }
+
     const cloudId = `si_${b.clientItemId}`;
     repo.upsertSiteItem({
       userId: user.sub,
       clientItemId: b.clientItemId,
-      clientSiteId: b.clientSiteId,
+      clientSiteId: resolvedSiteId ?? null,
+      clientProjectId: resolvedProjectId ?? null,
       cloudId,
       name: b.name ?? "",
       content: b.content ?? "",
@@ -488,7 +585,8 @@ async function main() {
     const items = repo.listSiteItemsByUser(user.sub).map((s) => ({
       cloudId: s.cloudId,
       clientItemId: s.clientItemId,
-      clientSiteId: s.clientSiteId,
+      clientSiteId: s.clientSiteId ?? null,
+      clientProjectId: s.clientProjectId ?? null,
       name: s.name,
       content: s.content,
       updatedAt: s.updatedAt,

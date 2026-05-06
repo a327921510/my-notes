@@ -33,12 +33,21 @@ export type StoredSnippet = {
   updatedAt: number;
 };
 
+export type StoredProject = {
+  userId: string;
+  clientProjectId: string;
+  cloudId: string;
+  name: string;
+  updatedAt: number;
+};
+
 export type StoredSite = {
   userId: string;
   clientSiteId: string;
   cloudId: string;
   name: string;
   address: string;
+  clientProjectId?: string | null;
   version: number;
   updatedAt: number;
 };
@@ -46,7 +55,8 @@ export type StoredSite = {
 export type StoredSiteItem = {
   userId: string;
   clientItemId: string;
-  clientSiteId: string;
+  clientSiteId?: string | null;
+  clientProjectId?: string | null;
   cloudId: string;
   name: string;
   content: string;
@@ -97,8 +107,15 @@ export type Repository = {
   upsertSnippet(snippet: StoredSnippet): void;
   deleteSnippet(cloudId: string): void;
 
+  /* ── Projects ─────────────────────────────────────────────── */
+  getProjectByCloudId(cloudId: string): StoredProject | undefined;
+  listProjectsByUser(userId: string): StoredProject[];
+  upsertProject(project: StoredProject): void;
+  deleteProjectForUser(userId: string, clientProjectId: string): void;
+
   /* ── Sites ─────────────────────────────────────────────────── */
   getSiteByCloudId(cloudId: string): StoredSite | undefined;
+  getSiteByClientId(userId: string, clientSiteId: string): StoredSite | undefined;
   listSitesByUser(userId: string): StoredSite[];
   findDuplicateSite(
     userId: string,

@@ -4,6 +4,7 @@ import type { RouteObject } from "react-router-dom";
 const MainLayout = lazy(() => import("@/layouts/MainLayout"));
 const NotesPage = lazy(() => import("@/pages/NotesPage"));
 const SitesPage = lazy(() => import("@/pages/SitesPage"));
+const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const CloudDrivePage = lazy(() => import("@/pages/CloudDrivePage"));
 
 export const routes: RouteObject[] = [
@@ -13,6 +14,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <NotesPage /> },
       { path: "sites", element: <SitesPage /> },
+      { path: "projects", element: <ProjectsPage /> },
       { path: "cloud-drive", element: <CloudDrivePage /> },
     ],
   },
