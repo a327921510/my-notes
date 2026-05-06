@@ -1,6 +1,7 @@
 import { App, Splitter } from "antd";
 import { useCallback } from "react";
 
+import { useSiteProjectBackup } from "@/hooks/useSiteProjectBackup";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 import { SiteDetailPanel } from "./components/SiteDetailPanel";
@@ -10,6 +11,7 @@ import { useSitesState } from "./hooks/useSitesState";
 export function SitesPage() {
   const { message } = App.useApp();
   const token = useAuthStore((s) => s.token);
+  const backup = useSiteProjectBackup();
   const {
     filteredSites,
     selectedSite,
@@ -98,7 +100,9 @@ export function SitesPage() {
   );
 
   return (
-    <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
+    <>
+      <input {...backup.importInputProps} />
+      <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
       <Splitter.Panel defaultSize={320} min={260} max={480}>
         <div className="h-full p-3">
           <SitesListPanel
@@ -114,6 +118,8 @@ export function SitesPage() {
             onDeleteSite={handleDeleteSite}
             onPullFromCloud={handlePullFromCloud}
             onPushToCloud={handlePushToCloud}
+            onExportBackup={backup.exportBackup}
+            onImportBackup={backup.openImportPicker}
           />
         </div>
       </Splitter.Panel>
@@ -133,6 +139,7 @@ export function SitesPage() {
         </div>
       </Splitter.Panel>
     </Splitter>
+    </>
   );
 }
 

@@ -3,14 +3,13 @@ import {
   FileTextOutlined,
   FolderOpenOutlined,
   GlobalOutlined,
-  LoginOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import { Button, Layout, Space, Typography } from "antd";
-import { Suspense, useCallback, useState } from "react";
+import type { MenuProps } from "antd";
+import { Avatar, Button, Dropdown, Layout, Space, Typography } from "antd";
+import { Suspense, useMemo } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { LoginModal } from "@/components/LoginModal";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 const { Header, Content } = Layout;
@@ -22,7 +21,10 @@ const NAV_ITEMS = [
   { key: "/cloud-drive", label: "云盘", icon: <FolderOpenOutlined /> },
 ] as const;
 
-function pathToMenuKey(pathname: string): string {
+function pathToMenuKey(pathname: string): string | null {
+  const normalized =
+    pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+  if (normalized === "/user") return null;
   const match = NAV_ITEMS.find(
     (item) => item.key !== "/" && pathname.startsWith(item.key),
   );
@@ -32,13 +34,27 @@ function pathToMenuKey(pathname: string): string {
 export function MainLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const location = useLocation();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
-  const selectedKey = pathToMenuKey(location.pathname);
-  const [loginOpen, setLoginOpen] = useState(false);
+  const selectedKey = pathToMenuKey(pathname);
 
-  const openLogin = useCallback(() => setLoginOpen(true), []);
-  const closeLogin = useCallback(() => setLoginOpen(false), []);
+  const loggedInMenuItems = useMemo<MenuProps["items"]>(
+    () => [
+      {
+        key: "profile",
+        label: "用户信息",
+        onClick: () => navigate("/user"),
+      },
+      { type: "divider" },
+      {
+        key: "logout",
+        label: "登出",
+        danger: true,
+        onClick: () => logout(),
+      },
+    ],
+    [logout, navigate],
+  );
 
   return (
     <Layout className="h-[100vh] bg-[#f5f5f5]">
@@ -50,7 +66,7 @@ export function MainLayout() {
           {NAV_ITEMS.map((item) => (
             <Button
               key={item.key}
-              type={selectedKey === item.key ? "primary" : "default"}
+              type={selectedKey !== null && selectedKey === item.key ? "primary" : "default"}
               icon={item.icon}
               onClick={() => navigate(item.key)}
             >
@@ -58,28 +74,30 @@ export function MainLayout() {
             </Button>
           ))}
         </div>
-        <Space wrap>
-          {user ? (
-            <>
-              <Space size={4}>
-                <UserOutlined />
-                <Typography.Text type="secondary">{user.email}</Typography.Text>
-              </Space>
-              <Button onClick={logout}>退出</Button>
-            </>
-          ) : (
-            <Button type="primary" icon={<LoginOutlined />} onClick={openLogin}>
-              登录
-            </Button>
-          )}
-        </Space>
+        <Dropdown
+          menu={{ items: loggedInMenuItems }}
+          trigger={["hover"]}
+          placement="bottomRight"
+        >
+          <Space className="cursor-pointer select-none py-1" size={8}>
+            <Avatar icon={<UserOutlined />} />
+            {user ? (
+              <Typography.Text className="max-w-[200px] truncate" type="secondary">
+                <span className="text-white">{user.email}</span>
+              </Typography.Text>
+            ) : (
+              <Typography.Text type="secondary">
+                <span className="text-white">游客</span>
+              </Typography.Text>
+            )}
+          </Space>
+        </Dropdown>
       </Header>
       <Content>
         <Suspense>
           <Outlet />
         </Suspense>
       </Content>
-      <LoginModal isOpen={loginOpen} onClose={closeLogin} />
     </Layout>
   );
 }

@@ -6,6 +6,7 @@ const NotesPage = lazy(() => import("@/pages/NotesPage"));
 const SitesPage = lazy(() => import("@/pages/SitesPage"));
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const CloudDrivePage = lazy(() => import("@/pages/CloudDrivePage"));
+const UserInfoPage = lazy(() => import("@/pages/UserInfoPage"));
 
 export const routes: RouteObject[] = [
   {
@@ -16,6 +17,7 @@ export const routes: RouteObject[] = [
       { path: "sites", element: <SitesPage /> },
       { path: "projects", element: <ProjectsPage /> },
       { path: "cloud-drive", element: <CloudDrivePage /> },
+      { path: "user", element: <UserInfoPage /> },
     ],
   },
 ];
