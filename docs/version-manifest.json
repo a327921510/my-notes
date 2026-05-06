@@ -27,6 +27,11 @@
       "path": "wireframes-html/index.html",
       "role": "线框 HTML",
       "sinceVersion": "0.1.0"
+    },
+    {
+      "path": "extension-prd.md",
+      "role": "扩展端产品需求",
+      "sinceVersion": "0.3.0"
     }
   ]
 }

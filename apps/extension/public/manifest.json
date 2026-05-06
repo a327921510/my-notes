@@ -3,10 +3,16 @@
   "name": "My Notes · 站点短文本",
   "description": "网页短文本采集；IndexedDB 与 Web 同结构，登录后手动拉取/推送与云端对齐。",
   "version": "0.3.0",
-  "action": {
-    "default_title": "My Notes Snippets",
-    "default_popup": "popup.html"
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
   },
-  "permissions": ["storage", "tabs"],
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "action": {
+    "default_title": "My Notes Snippets"
+  },
+  "permissions": ["storage", "tabs", "sidePanel", "windows"],
   "host_permissions": ["http://127.0.0.1:3001/*", "http://localhost:3001/*"]
 }

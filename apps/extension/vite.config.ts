@@ -32,9 +32,12 @@ export default defineConfig({
     outDir: "dist",
     emptyDirBeforeWrite: true,
     rollupOptions: {
-      input: path.resolve(__dirname, "popup.html"),
+      input: {
+        popup: path.resolve(__dirname, "popup.html"),
+        background: path.resolve(__dirname, "src/background.ts"),
+      },
       output: {
-        entryFileNames: "popup.js",
+        entryFileNames: ({ name }) => (name === "background" ? "background.js" : "popup.js"),
         assetFileNames: "[name][extname]",
       },
     },
