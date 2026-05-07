@@ -73,10 +73,17 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
   );
 
   const cancelItemEdit = useCallback(() => {
+    if (site && editingItemId) {
+      const row = site.items.find((i) => i.id === editingItemId);
+      /** 未保存过正文（仅占位）时取消，删除记录避免出现空白行 */
+      if (row && !row.content.trim()) {
+        void onDeleteItem(site.id, editingItemId);
+      }
+    }
     setEditingItemId(null);
     setItemNameDraft("");
     setItemContentDraft("");
-  }, []);
+  }, [site, editingItemId, onDeleteItem]);
 
   const commitItemEdit = useCallback(async () => {
     if (!site || !editingItemId) return;

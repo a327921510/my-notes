@@ -51,6 +51,7 @@ export function useSitesState() {
       cloudId: site.cloudId,
       items: itemRows
         .filter((item) => item.siteId === site.id)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
         .map<SiteItem>((item) => ({
           id: item.id,
           name: item.name,

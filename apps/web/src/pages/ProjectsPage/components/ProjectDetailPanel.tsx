@@ -79,10 +79,16 @@ export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
   );
 
   const cancelItemEdit = useCallback(() => {
+    if (project && editingItemId) {
+      const row = project.items.find((i) => i.id === editingItemId);
+      if (row && !row.content.trim()) {
+        void onDeleteItem(project.id, editingItemId);
+      }
+    }
     setEditingItemId(null);
     setItemNameDraft("");
     setItemContentDraft("");
-  }, []);
+  }, [project, editingItemId, onDeleteItem]);
 
   const commitItemEdit = useCallback(async () => {
     if (!project || !editingItemId) return;

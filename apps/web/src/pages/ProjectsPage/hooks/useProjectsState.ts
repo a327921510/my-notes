@@ -25,6 +25,7 @@ function sortProjectItemsForDisplay(items: ProjectItem[]): ProjectItem[] {
     if (!item.siteId) withoutSite.push(item);
     else withSite.push(item);
   }
+  withoutSite.sort((a, b) => b.updatedAt - a.updatedAt);
 
   const siteIdFirstOrder: string[] = [];
   const seenSiteId = new Set<string>();
@@ -43,6 +44,10 @@ function sortProjectItemsForDisplay(items: ProjectItem[]): ProjectItem[] {
     const sid = item.siteId;
     if (!sid) continue;
     bySiteId.get(sid)?.push(item);
+  }
+  for (const sid of siteIdFirstOrder) {
+    const bucket = bySiteId.get(sid);
+    if (bucket?.length) bucket.sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
   const groupedWithSite = siteIdFirstOrder.flatMap((sid) => bySiteId.get(sid) ?? []);
@@ -90,6 +95,7 @@ export function useProjectsState() {
               id: item.id,
               name: item.name,
               content: item.content,
+              updatedAt: item.updatedAt,
               syncStatus: item.syncStatus,
               cloudId: item.cloudId,
               siteId: item.siteId ?? null,
