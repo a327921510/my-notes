@@ -127,7 +127,6 @@ export function SitesPage() {
       </div>
     );
   }
-  console.log(33333, focusSiteId, focusItemId);
   return (
     <>
       <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>

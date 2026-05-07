@@ -1,6 +1,8 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo } from "react";
 
+import { PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME, SITE_MARKDOWN_DOCUMENT_ITEM_NAME } from "@my-notes/shared";
+
 import { db } from "@my-notes/local-db";
 
 function stripHtml(html: string): string {
@@ -81,6 +83,12 @@ export function useGlobalEntrySearch(keyword: string) {
     }
 
     for (const it of itemRows) {
+      if (
+        it.name === SITE_MARKDOWN_DOCUMENT_ITEM_NAME ||
+        it.name === PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME
+      ) {
+        continue;
+      }
       const plain = stripHtml(it.content ?? "");
       const name = it.name || "";
       if (!matches(q, name, plain)) continue;

@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useMemo, useState } from "react";
 
 import { db, propagateSiteProjectToItems } from "@my-notes/local-db";
-import { createId, nextSyncAfterEdit } from "@my-notes/shared";
+import { createId, nextSyncAfterEdit, PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME } from "@my-notes/shared";
 import {
   deleteProjectOnCloud,
   deleteSiteItemOnCloud,
@@ -88,7 +88,11 @@ export function useProjectsState() {
       cloudId: row.cloudId,
       items: sortProjectItemsForDisplay(
         itemRows
-          .filter((item) => (item.projectId ?? null) === row.id)
+          .filter(
+            (item) =>
+              (item.projectId ?? null) === row.id &&
+              item.name !== PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME,
+          )
           .map<ProjectItem>((item) => {
             const site = item.siteId ? siteRows.find((s) => s.id === item.siteId) : undefined;
             return {

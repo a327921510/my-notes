@@ -1,5 +1,10 @@
 import type { SyncStatus } from "@my-notes/shared";
-import { SYNC_STATUS_LABELS, createId, nextSyncAfterEdit } from "@my-notes/shared";
+import {
+  SITE_MARKDOWN_DOCUMENT_ITEM_NAME,
+  SYNC_STATUS_LABELS,
+  createId,
+  nextSyncAfterEdit,
+} from "@my-notes/shared";
 import { db } from "@my-notes/local-db";
 import {
   deleteSiteItemOnCloud,
@@ -140,7 +145,9 @@ function Popup() {
         address: site.address,
         syncStatus: site.syncStatus,
         items: itemRows
-          .filter((item) => item.siteId === site.id)
+          .filter(
+            (item) => item.siteId === site.id && item.name !== SITE_MARKDOWN_DOCUMENT_ITEM_NAME,
+          )
           .map((item) => ({
             id: item.id,
             name: item.name,

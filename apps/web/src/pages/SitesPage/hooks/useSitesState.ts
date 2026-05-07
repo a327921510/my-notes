@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useMemo, useState } from "react";
 
 import { db, propagateSiteProjectToItems } from "@my-notes/local-db";
-import { createId, nextSyncAfterEdit } from "@my-notes/shared";
+import { createId, nextSyncAfterEdit, SITE_MARKDOWN_DOCUMENT_ITEM_NAME } from "@my-notes/shared";
 import {
   deleteSiteItemOnCloud,
   deleteSiteOnCloud,
@@ -50,7 +50,10 @@ export function useSitesState() {
       syncStatus: site.syncStatus,
       cloudId: site.cloudId,
       items: itemRows
-        .filter((item) => item.siteId === site.id)
+        .filter(
+          (item) =>
+            item.siteId === site.id && item.name !== SITE_MARKDOWN_DOCUMENT_ITEM_NAME,
+        )
         .sort((a, b) => b.updatedAt - a.updatedAt)
         .map<SiteItem>((item) => ({
           id: item.id,
