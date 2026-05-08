@@ -6,6 +6,8 @@ export type SiteItem = {
   content: string;
   syncStatus: SyncStatus;
   cloudId?: string;
+  /** 来自项目文档表格同步，站点页仅可复制 */
+  readOnly?: boolean;
 };
 
 export type Site = {

@@ -3,6 +3,8 @@ import { Button, Empty, Input, Modal, Select, Space, Typography, message } from 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ItemArticleRow, formatItemArticleCopyLine } from "@/components/ItemArticleRow";
 import { SyncBadge } from "@/components/SyncBadge";
+import { parseProjectCredentialMirrorItemName } from "@my-notes/shared";
+
 import type { Site } from "../types";
 
 export type SiteDetailPanelProps = {
@@ -58,7 +60,7 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
   const handleEditSiteItem = useCallback((itemId: string) => {
     if (!site) return;
     const item = site.items.find((i) => i.id === itemId);
-    if (!item) return;
+    if (!item || parseProjectCredentialMirrorItemName(item.name)) return;
     setEditingItemId(itemId);
     setItemNameDraft(item.name);
     setItemContentDraft(item.content);
@@ -67,6 +69,8 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
   const handleDeleteSiteItem = useCallback(
     (itemId: string) => {
       if (!site) return;
+      const item = site.items.find((i) => i.id === itemId);
+      if (item && parseProjectCredentialMirrorItemName(item.name)) return;
       void onDeleteItem(site.id, itemId);
     },
     [site, onDeleteItem],
@@ -104,6 +108,11 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
     if (!focusItemId || focusItemConsumedRef.current || !site) return;
     const item = site.items.find((i) => i.id === focusItemId);
     if (!item) {
+      focusItemConsumedRef.current = true;
+      onFocusItemConsumed?.();
+      return;
+    }
+    if (parseProjectCredentialMirrorItemName(item.name)) {
       focusItemConsumedRef.current = true;
       onFocusItemConsumed?.();
       return;
@@ -188,6 +197,7 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
               <ItemArticleRow
                 key={item.id}
                 item={item}
+                readOnly={item.readOnly}
                 isEditing={editingItemId === item.id}
                 itemNameDraft={itemNameDraft}
                 itemContentDraft={itemContentDraft}

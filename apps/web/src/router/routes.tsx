@@ -5,7 +5,6 @@ import type { RouteObject } from "react-router-dom";
 const MainLayout = lazy(() => import("@/layouts/MainLayout"));
 const NotesPage = lazy(() => import("@/pages/NotesPage"));
 const SitesPage = lazy(() => import("@/pages/SitesPage"));
-const SiteMarkdownPage = lazy(() => import("@/pages/SiteMarkdownPage"));
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const ProjectMarkdownPage = lazy(() => import("@/pages/ProjectMarkdownPage"));
 const CloudDrivePage = lazy(() => import("@/pages/CloudDrivePage"));
@@ -19,7 +18,6 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="/notes" replace /> },
       { path: "notes", element: <NotesPage /> },
       { path: "sites", element: <SitesPage /> },
-      { path: "site-markdown", element: <SiteMarkdownPage /> },
       { path: "project-markdown", element: <ProjectMarkdownPage /> },
       { path: "projects", element: <ProjectsPage /> },
       { path: "cloud-drive", element: <CloudDrivePage /> },

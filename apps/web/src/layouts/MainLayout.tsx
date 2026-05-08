@@ -1,6 +1,5 @@
 import {
   AppstoreOutlined,
-  FileMarkdownOutlined,
   FileTextOutlined,
   SnippetsOutlined,
   FolderOpenOutlined,
@@ -20,7 +19,6 @@ const { Header, Content } = Layout;
 const NAV_ITEMS = [
   { key: "/", label: "笔记区", icon: <FileTextOutlined /> },
   { key: "/sites", label: "站点信息区", icon: <GlobalOutlined /> },
-  { key: "/site-markdown", label: "站点整页", icon: <FileMarkdownOutlined /> },
   { key: "/project-markdown", label: "项目文档", icon: <SnippetsOutlined /> },
   { key: "/projects", label: "项目信息区", icon: <AppstoreOutlined /> },
   { key: "/cloud-drive", label: "云盘", icon: <FolderOpenOutlined /> },

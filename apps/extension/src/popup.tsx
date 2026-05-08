@@ -3,7 +3,9 @@ import {
   SITE_MARKDOWN_DOCUMENT_ITEM_NAME,
   SYNC_STATUS_LABELS,
   createId,
+  formatSiteItemDisplayName,
   nextSyncAfterEdit,
+  parseProjectCredentialMirrorItemName,
 } from "@my-notes/shared";
 import { db } from "@my-notes/local-db";
 import {
@@ -329,6 +331,7 @@ function Popup() {
   }, [ensureSiteForCurrentDomain, newItemContent, newItemName, selectedSiteId]);
 
   const startEditItem = useCallback((itemId: string, name: string, content: string) => {
+    if (parseProjectCredentialMirrorItemName(name)) return;
     setEditingItemId(itemId);
     setEditItemName(name);
     setEditItemContent(content);
@@ -351,6 +354,10 @@ function Popup() {
       cancelEditItem();
       return;
     }
+    if (parseProjectCredentialMirrorItemName(prev.name)) {
+      cancelEditItem();
+      return;
+    }
     await db.site_items.update(editingItemId, {
       name: editItemName.trim(),
       content: editItemContent,
@@ -366,6 +373,7 @@ function Popup() {
       if (!window.confirm("确认删除该条目？")) return;
       const row = await db.site_items.get(itemId);
       if (!row || row.siteId !== selectedSiteId) return;
+      if (parseProjectCredentialMirrorItemName(row.name)) return;
       try {
         if (token) {
           await deleteSiteItemOnCloud(token, itemId, { apiBase });
@@ -415,7 +423,8 @@ function Popup() {
       list = list.filter(
         (it) =>
           it.name.toLowerCase().includes(kw) ||
-          it.content.toLowerCase().includes(kw),
+          it.content.toLowerCase().includes(kw) ||
+          formatSiteItemDisplayName(it.name).toLowerCase().includes(kw),
       );
     }
     return [...list].sort((a, b) => {
@@ -559,6 +568,8 @@ function Popup() {
               renderItem={(it) => {
                 const editing = editingItemId === it.id;
                 const pinned = pinnedItemIds.includes(it.id);
+                const isMirror = parseProjectCredentialMirrorItemName(it.name) !== null;
+                const itemLabel = formatSiteItemDisplayName(it.name);
                 return (
                   <List.Item key={it.id}>
                     <Space direction="vertical" style={{ width: "100%" }} size={6}>
@@ -586,7 +597,7 @@ function Popup() {
                           </Typography.Paragraph>
                           <Space style={{ width: "100%", justifyContent: "space-between" }} align="start">
                             <Space size={4} wrap>
-                              <Typography.Text type="secondary">{it.name || "(untitled)"}</Typography.Text>
+                              <Typography.Text type="secondary">{itemLabel}</Typography.Text>
                               <Tag>{SYNC_STATUS_LABELS[it.syncStatus]}</Tag>
                               <Typography.Text type="secondary">{formatTime(it.updatedAt)}</Typography.Text>
                             </Space>
@@ -610,10 +621,21 @@ function Popup() {
                                 />
                               </Tooltip>
                               <Tooltip title="编辑">
-                                <Button icon={<EditOutlined />} size="small" disabled={syncBusy} onClick={() => startEditItem(it.id, it.name, it.content)} />
+                                <Button
+                                  icon={<EditOutlined />}
+                                  size="small"
+                                  disabled={syncBusy || isMirror}
+                                  onClick={() => startEditItem(it.id, it.name, it.content)}
+                                />
                               </Tooltip>
                               <Tooltip title="删除">
-                                <Button danger icon={<DeleteOutlined />} size="small" disabled={syncBusy} onClick={() => void handleDeleteItem(it.id)} />
+                                <Button
+                                  danger
+                                  icon={<DeleteOutlined />}
+                                  size="small"
+                                  disabled={syncBusy || isMirror}
+                                  onClick={() => void handleDeleteItem(it.id)}
+                                />
                               </Tooltip>
                             </Space>
                           </Space>

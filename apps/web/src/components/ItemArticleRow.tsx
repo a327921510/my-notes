@@ -1,5 +1,5 @@
 import { CopyOutlined, DeleteOutlined, EditOutlined, SaveOutlined } from "@ant-design/icons";
-import type { SyncStatus } from "@my-notes/shared";
+import { formatSiteItemDisplayName, type SyncStatus } from "@my-notes/shared";
 import { Badge, Button, Input, Popconfirm, Space, Typography } from "antd";
 import { memo } from "react";
 
@@ -18,13 +18,15 @@ export type ItemArticleRowItem = {
 };
 
 export function formatItemArticleCopyLine(item: ItemArticleRowItem): string {
-  const title = item.name.trim() ? item.name : "（未命名）";
+  const title = formatSiteItemDisplayName(item.name);
   const body = item.content.trim() ? item.content : "-";
   return `${title}：${body}`;
 }
 
 export type ItemArticleRowProps = {
   item: ItemArticleRowItem;
+  /** 项目文档同步的镜像条目：仅可复制，不可编辑删除 */
+  readOnly?: boolean;
   isEditing: boolean;
   itemNameDraft: string;
   itemContentDraft: string;
@@ -40,6 +42,7 @@ export type ItemArticleRowProps = {
 
 export const ItemArticleRow = memo(function ItemArticleRow({
   item,
+  readOnly = false,
   isEditing,
   itemNameDraft,
   itemContentDraft,
@@ -52,10 +55,10 @@ export const ItemArticleRow = memo(function ItemArticleRow({
   onEdit,
   onDelete,
 }: ItemArticleRowProps) {
-  const displayName = item.name.trim() ? item.name : "（未命名）";
+  const displayName = formatSiteItemDisplayName(item.name);
   const displayContent = item.content.trim() ? item.content : "-";
 
-  if (isEditing) {
+  if (isEditing && !readOnly) {
     return (
       <div className="border-b border-gray-100 py-3">
         <Space direction="vertical" className="w-full" size="small">
@@ -109,23 +112,27 @@ export const ItemArticleRow = memo(function ItemArticleRow({
             title="复制"
             onClick={() => onCopy(item.id)}
           />
-          <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            aria-label="编辑"
-            title="编辑"
-            onClick={() => onEdit(item.id)}
-          />
-          <Popconfirm
-            title="确认删除该条目？"
-            description="删除后不可恢复"
-            okText="确认"
-            cancelText="取消"
-            onConfirm={() => onDelete(item.id)}
-          >
-            <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="删除" title="删除" />
-          </Popconfirm>
+          {!readOnly ? (
+            <>
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                aria-label="编辑"
+                title="编辑"
+                onClick={() => onEdit(item.id)}
+              />
+              <Popconfirm
+                title="确认删除该条目？"
+                description="删除后不可恢复"
+                okText="确认"
+                cancelText="取消"
+                onConfirm={() => onDelete(item.id)}
+              >
+                <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="删除" title="删除" />
+              </Popconfirm>
+            </>
+          ) : null}
         </Space>
       </div>
     </div>

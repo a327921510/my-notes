@@ -2,7 +2,13 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useMemo, useState } from "react";
 
 import { db, propagateSiteProjectToItems } from "@my-notes/local-db";
-import { createId, nextSyncAfterEdit, PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME } from "@my-notes/shared";
+import {
+  createId,
+  isProjectCredentialMirrorItemName,
+  nextSyncAfterEdit,
+  PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME,
+  projectCredentialMirrorNamesPrefix,
+} from "@my-notes/shared";
 import {
   deleteProjectOnCloud,
   deleteSiteItemOnCloud,
@@ -91,7 +97,8 @@ export function useProjectsState() {
           .filter(
             (item) =>
               (item.projectId ?? null) === row.id &&
-              item.name !== PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME,
+              item.name !== PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME &&
+              !isProjectCredentialMirrorItemName(item.name),
           )
           .map<ProjectItem>((item) => {
             const site = item.siteId ? siteRows.find((s) => s.id === item.siteId) : undefined;
@@ -149,6 +156,11 @@ export function useProjectsState() {
       await deleteProjectOnCloud(token, projectId, { apiBase: opts?.apiBase });
     }
     await db.transaction("rw", db.projects, db.sites, db.site_items, async () => {
+      const mirrorPrefix = projectCredentialMirrorNamesPrefix(projectId);
+      const mirrorRows = await db.site_items.filter((it) => it.name.startsWith(mirrorPrefix)).toArray();
+      for (const it of mirrorRows) {
+        await db.site_items.delete(it.id);
+      }
       const projectOnly = await db.site_items
         .filter((it) => (it.projectId ?? null) === projectId && !it.siteId)
         .toArray();

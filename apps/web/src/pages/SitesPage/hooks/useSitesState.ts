@@ -2,7 +2,12 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useMemo, useState } from "react";
 
 import { db, propagateSiteProjectToItems } from "@my-notes/local-db";
-import { createId, nextSyncAfterEdit, SITE_MARKDOWN_DOCUMENT_ITEM_NAME } from "@my-notes/shared";
+import {
+  createId,
+  isProjectCredentialMirrorItemName,
+  nextSyncAfterEdit,
+  SITE_MARKDOWN_DOCUMENT_ITEM_NAME,
+} from "@my-notes/shared";
 import {
   deleteSiteItemOnCloud,
   deleteSiteOnCloud,
@@ -61,6 +66,7 @@ export function useSitesState() {
           content: item.content,
           syncStatus: item.syncStatus,
           cloudId: item.cloudId,
+          readOnly: isProjectCredentialMirrorItemName(item.name),
         })),
     }));
   }, [itemRows, siteRows]);

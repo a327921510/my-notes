@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { db } from "@my-notes/local-db";
 import { createId, nextSyncAfterEdit, PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME } from "@my-notes/shared";
 
+import { syncProjectCredentialMirrors } from "../utils/syncProjectCredentialMirrors";
+
 const SAVE_DEBOUNCE_MS = 500;
 
 export function useProjectMarkdownDocument(projectId: string | null) {
@@ -33,6 +35,7 @@ export function useProjectMarkdownDocument(projectId: string | null) {
         syncStatus: "local_only",
       });
     }
+    await syncProjectCredentialMirrors(targetProjectId, text);
   }, []);
 
   const scheduleSave = useCallback(
@@ -72,8 +75,10 @@ export function useProjectMarkdownDocument(projectId: string | null) {
         (i) => i.name === PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME && !i.siteId,
       );
       if (!cancelled) {
-        setDraft(row?.content ?? "");
+        const content = row?.content ?? "";
+        setDraft(content);
         setIsLoading(false);
+        void syncProjectCredentialMirrors(projectId, content);
       }
     })();
     return () => {

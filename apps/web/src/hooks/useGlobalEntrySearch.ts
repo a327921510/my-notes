@@ -1,7 +1,11 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo } from "react";
 
-import { PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME, SITE_MARKDOWN_DOCUMENT_ITEM_NAME } from "@my-notes/shared";
+import {
+  formatSiteItemDisplayName,
+  PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME,
+  SITE_MARKDOWN_DOCUMENT_ITEM_NAME,
+} from "@my-notes/shared";
 
 import { db } from "@my-notes/local-db";
 
@@ -83,15 +87,13 @@ export function useGlobalEntrySearch(keyword: string) {
     }
 
     for (const it of itemRows) {
-      if (
-        it.name === SITE_MARKDOWN_DOCUMENT_ITEM_NAME ||
-        it.name === PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME
-      ) {
+      if (it.name === SITE_MARKDOWN_DOCUMENT_ITEM_NAME || it.name === PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME) {
         continue;
       }
       const plain = stripHtml(it.content ?? "");
-      const name = it.name || "";
-      if (!matches(q, name, plain)) continue;
+      const rawName = it.name || "";
+      const displayName = formatSiteItemDisplayName(rawName);
+      if (!matches(q, rawName, plain, displayName)) continue;
       const snippet = makeSnippet(plain, q);
 
       if (it.siteId) {
@@ -101,7 +103,7 @@ export function useGlobalEntrySearch(keyword: string) {
           itemId: it.id,
           siteId: it.siteId,
           siteName: site?.name?.trim() || "未命名站点",
-          name: name.trim() || "未命名条目",
+          name: displayName.trim() || "未命名条目",
           snippet,
         });
       } else if (it.projectId) {
@@ -111,7 +113,7 @@ export function useGlobalEntrySearch(keyword: string) {
           itemId: it.id,
           projectId: it.projectId,
           projectName: proj?.name?.trim() || "未命名项目",
-          name: name.trim() || "未命名条目",
+          name: displayName.trim() || "未命名条目",
           snippet,
         });
       }
