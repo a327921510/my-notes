@@ -1,0 +1,119 @@
+---
+description: 可访问性（a11y）基线规则 — 语义化、键盘、ARIA、焦点、色彩对比、antd 组件特例
+globs:
+  - "src/**/*.tsx"
+alwaysApply: false
+---
+
+# 可访问性规则
+
+> 目标：键盘用户、屏幕阅读器用户、色弱 / 色盲用户、手部不便用户都能用本产品。
+> 不追求 WCAG 2.2 AAA 覆盖率，而是对常见高频违例做硬约束。
+
+## 1. 语义化优先
+
+| 场景 | ❌ 错误 | ✅ 正确 |
+|---|---|---|
+| 可点击元素 | `<div onClick={handle}>` | `<button onClick={handle}>` 或 `<a href>` |
+| 列表 | `<div><div>...</div></div>` | `<ul><li>...</li></ul>` |
+| 标题层级 | `<div className="text-lg font-bold">` | `<h1>` ~ `<h6>`，按层级用 |
+| 表单字段 | `<div>邮箱</div><input>` | `<label htmlFor="email">邮箱</label><input id="email">`（或 antd `Form.Item` 的 `label`）|
+
+> "div 加 onClick" 是最高频违例：键盘用户无法 Tab 聚焦、无法 Enter / Space 触发；屏幕阅读器不会念出"按钮"。**禁止**这种写法，用 `<button>` 加 `type="button"` 防意外提交。
+
+## 2. 键盘可访问
+
+每个交互元素必须满足：
+- **可 Tab 聚焦**（`<button>` / `<a>` / `<input>` 默认满足；自定义元素需 `tabIndex={0}`）
+- **聚焦可见**（不要 `outline: none` 而不补替代视觉指示）
+- **Enter / Space 触发**（`<button>` 默认；自定义元素需 `onKeyDown` 处理）
+- **Esc 关闭**（弹窗、抽屉、下拉菜单——antd Modal / Drawer / Dropdown 默认支持，自定义弹层需自行实现）
+
+**禁止** `tabIndex={-1}` 后又把元素当主交互入口；`tabIndex={-1}` 仅用于"程序化聚焦"目标（如 Modal 打开后聚焦到内容区）。
+
+## 3. ARIA 与可读名
+
+| 元素 | 必须有 |
+|---|---|
+| 图标按钮（无文字） | `aria-label`，如 `<Button icon={<DeleteOutlined />} aria-label="删除" />` |
+| 装饰性图标 | `aria-hidden="true"`，避免被屏幕阅读器读出 |
+| 表单字段 | `<label>` 或 `aria-labelledby` 关联可见标签（antd `Form.Item label` 自动满足） |
+| 错误提示 | `aria-invalid="true"` + `aria-describedby` 指向错误文本（antd Form 自动处理）|
+| 异步状态变化 | 用 `<div role="status" aria-live="polite">` 让屏幕阅读器播报 |
+
+**ARIA 反模式**：
+- ❌ 在 `<button>` 上加 `role="button"`（重复且可能被无视）
+- ❌ `aria-label` 和可见文本不一致（如按钮显示"保存"，aria-label 是"提交"）
+- ❌ 用 `aria-label` 替代 `<label>`（仍要保留可见标签，否则视觉用户也看不到）
+
+## 4. 焦点管理
+
+| 场景 | 期望行为 |
+|---|---|
+| 弹窗 / 抽屉打开 | 焦点移入弹窗第一个可交互元素；按 Tab 在弹窗内循环；关闭后焦点回到触发元素 |
+| 路由切换 | 焦点回到页面标题 `<h1>` 或主内容区，避免停留在被卸载的元素上 |
+| 删除某行后 | 焦点移到下一行（或删除按钮的容器），不要 reset 到 body |
+| 异步加载完成 | 焦点保持在用户原本位置，不跳走 |
+
+> antd 的 `Modal` / `Drawer` / `Dropdown` 已实现焦点 trap 与回归。**自定义弹层**（用 `Popover` + 可交互内容、用 `Tooltip` 包按钮等）需自行测试。
+
+## 5. 色彩与对比度
+
+- **文字与背景对比度** ≥ 4.5:1（正文）/ ≥ 3:1（≥18px 大字）
+- **状态不能只靠颜色传达**：错误用红色 + ❌图标 + 文字"错误"；不能只是变红
+- **链接** 在正文中必须有非颜色区分（下划线 / 加粗），仅靠颜色色弱用户分不清
+
+> antd `ConfigProvider` 主题 token 改色后，记得用 [DevTools 的 Contrast Ratio 工具](https://developer.chrome.com/docs/devtools/accessibility/contrast/) 检查关键对比度。
+
+## 6. 异步状态可访问
+
+```tsx
+{loading && <div role="status" aria-live="polite">加载中...</div>}
+{error && <div role="alert">{error}</div>}
+{!loading && !error && data?.length === 0 && (
+  <div role="status">暂无数据</div>
+)}
+```
+
+| role | 何时用 |
+|---|---|
+| `role="status"` + `aria-live="polite"` | 不打断用户的状态通知（加载中、保存成功）|
+| `role="alert"` | 紧急错误，立即打断屏幕阅读器朗读 |
+
+> antd 的 `Spin` 已设置 `aria-busy`；`message.error()` 已设置 `role="alert"`。**自定义** loading / error UI 才需要自己加。
+
+## 7. 表单可访问性
+
+- 每个字段必须有可见 `<label>`（antd `Form.Item` 的 `label` 自动满足）
+- 必填字段视觉与 ARIA 双重标识：`Form.Item required` 自动加红星 + `aria-required="true"`
+- 错误文本通过 `aria-describedby` 关联到字段（antd Form 自动处理）
+- **禁止** placeholder 当 label 用（用户输入后 placeholder 消失，无障碍丢失）
+
+## 8. 图片与媒体
+
+- `<img>` 必须有 `alt`：装饰性图 `alt=""`；信息性图填实际描述
+- 图标作为 React 组件（如 `vite-plugin-svgr`）默认无 `alt`，**装饰性**用 `aria-hidden="true"`，**承载语义**用 `aria-label`
+- 视频 / 音频需提供字幕或文字替代
+
+## 9. antd 组件特例对照
+
+| 组件 | 默认 a11y | 我们需要补的 |
+|---|---|---|
+| `Button` | ✅ 完整 | 图标按钮加 `aria-label` |
+| `Modal` / `Drawer` | ✅ 焦点 trap + Esc | 设置 `title`（自动成为 aria-labelledby）|
+| `Form.Item` | ✅ label / required / error | 校验文本中文清晰、不要只输出 code |
+| `Tooltip` / `Popover` | ⚠️ 仅 hover/focus 触发，移动端易丢失 | 关键信息不能只放 Tooltip |
+| `Tabs` | ✅ ARIA tabs 模式 | — |
+| `Table` 自定义行点击 | ❌ `<tr onClick>` 不可键盘聚焦 | 用 `Table` 的 `rowSelection` 或在行内放 `<button>` |
+| `Card` 整卡可点 | ❌ div 包裹 | 嵌套一个透明 `<button>` 覆盖卡片，或拆出明确按钮 |
+
+## 禁止事项
+
+- **禁止** `<div onClick>` / `<span onClick>` 作为主交互入口（用 `<button type="button">`）
+- **禁止** `outline: none` 不补替代焦点指示
+- **禁止** `tabIndex` 大于 0（破坏自然 Tab 顺序）
+- **禁止**用颜色作为唯一的状态区分手段
+- **禁止**用 placeholder 替代 `<label>`
+- **禁止**图标按钮没有 `aria-label`
+- **禁止**自定义 `role` 后不补全配套 ARIA 属性（如 `role="dialog"` 不配 `aria-modal` / `aria-labelledby`）
+- **禁止**关闭弹窗后焦点掉到 body（必须回到触发元素或合理位置）

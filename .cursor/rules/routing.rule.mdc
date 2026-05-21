@@ -1,8 +1,11 @@
 ---
 description: React Router DOM v6 路由规则
-alwaysApply: false
 globs:
-  - "apps/web/src/**"
+  - "src/router/**/*.{ts,tsx}"
+  - "src/pages/**/index.tsx"
+  - "src/App.tsx"
+  - "src/main.tsx"
+alwaysApply: false
 ---
 
 # 路由规则

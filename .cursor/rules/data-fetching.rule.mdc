@@ -1,0 +1,128 @@
+---
+description: 业务 Hook 中的数据获取规则 — loading/error/empty 三态契约、取消、乐观更新
+globs:
+  - "src/pages/**/hooks/use*.{ts,tsx}"
+  - "src/services/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# 数据获取规则
+
+> 适用于"业务 Hook"层（`pages/<Name>/hooks/use<Domain>.ts`）。请求层本身只暴露纯函数（详见 `api-services.rule.mdc`）。
+
+## 业务 Hook 返回结构契约
+
+```typescript
+function useXxx(params?: XxxParams) {
+  return {
+    // 状态（按需暴露）
+    data,           // T | T[] | null
+    loading,        // boolean — 首次加载和 refetch 都用同一个
+    error,          // string | null — 用户可读的错误描述
+    isEmpty,        // boolean — 派生：!loading && !error && (data == null || data.length === 0)
+
+    // 动作（必须 useCallback 包裹）
+    refetch,        // () => Promise<void>
+    create / update / delete,
+    // ...
+  };
+}
+```
+
+**统一字段名**：`data` / `loading` / `error` / `refetch`，不要在不同 Hook 里换名（避免组件层适配多套接口）。
+
+## 三态 UI 必须显式处理
+
+调用方在区域组件 / 纯展示组件里，不允许"只画 happy path":
+
+```tsx
+function OrderListPanel() {
+  const { data, loading, error, refetch } = useOrders();
+
+  if (loading) return <Skeleton active />;
+  if (error) return <Result status="error" title={error} extra={<Button onClick={refetch}>重试</Button>} />;
+  if (!data || data.length === 0) return <Empty description="暂无订单" />;
+
+  return <Table dataSource={data} />;
+}
+```
+
+> 复杂页面可以把这套模板抽成 `<AsyncBoundary loading error empty>{children}</AsyncBoundary>` 复用，但**禁止**让调用方"忘了写 error 分支"。
+
+## 请求取消（避免 race condition）
+
+**列表筛选 / 搜索 / 路由切换**等场景，前一次请求未完成、参数已经变化时，必须取消：
+
+```typescript
+useEffect(() => {
+  const controller = new AbortController();
+
+  (async () => {
+    setLoading(true);
+    try {
+      const res = await api.getList(params, { signal: controller.signal });
+      setData(res);
+    } catch (err) {
+      if (axios.isCancel(err)) return;
+      setError(err instanceof Error ? err.message : "加载失败");
+    } finally {
+      setLoading(false);
+    }
+  })();
+
+  return () => controller.abort();
+}, [params]);
+```
+
+> Axios 通过 `config.signal` 接收 `AbortSignal`，组件卸载或依赖变化时 `controller.abort()`。
+> 业务 API 模块函数应当透传第二个 `config` 参数（详见 `api-services.rule.mdc`）。
+
+## 乐观更新与回滚
+
+凡是"删除 / 切换状态 / 拖拽排序"这类用户期望立即反馈的操作，使用乐观更新：
+
+```typescript
+const deleteItem = useCallback(async (id: string) => {
+  const snapshot = data;
+  setData((prev) => prev.filter((item) => item.id !== id));
+  try {
+    await api.delete(id);
+  } catch (err) {
+    setData(snapshot);                                       // 回滚
+    setError(err instanceof Error ? err.message : "删除失败");
+    throw err;                                                // 重新抛出，让调用方决定 UI 提示
+  }
+}, [data]);
+```
+
+**约定**：乐观更新失败后**重新抛出错误**，让组件层决定如何提示（统一走 `App.useApp().message`，详见 `error-handling.rule.mdc`）。
+
+## 缓存与去重
+
+项目当前未引入 TanStack Query / SWR——业务 Hook 的"缓存"目前只能靠：
+- 把 `useXxx` 提到更靠上的组件（页面入口）一次调用、向下传 props
+- 必要时用 `useRef` 存上一次的请求 promise，相同参数命中直接返回
+
+> 当出现以下信号时，应在 PR 里**主动提议引入 TanStack Query**：
+> 1. 同一份数据被 ≥3 个页面/组件分别 fetch
+> 2. 出现"删除后列表没刷新"、"返回页面后看到旧数据"这类 BUG
+> 3. 业务 Hook 里手写缓存逻辑超过 30 行
+
+## 分页 / 筛选 / 排序状态归属
+
+| 状态 | 存哪 |
+|---|---|
+| 当前页码、每页数、筛选条件、排序字段 | URL `searchParams`（可分享、刷新不丢） |
+| 服务端返回的 `total` | 业务 Hook 内部 state |
+| 临时多选、行展开 | 区域组件 state |
+
+> "可被分享 URL 还原"的状态走 `useSearchParams`；详见 `routing.rule.mdc`。
+
+## 禁止事项
+
+- **禁止**在组件里直接 `axios.get` / `fetch`（必须经业务 Hook → API 模块 → request 实例）
+- **禁止**在业务 Hook 里弹 `message.*`（详见 `error-handling.rule.mdc`）
+- **禁止**漏掉 cleanup（`useEffect` 内的请求未配 `AbortSignal` 或卸载时未 abort）
+- **禁止**自定义返回字段名（必须用 `data` / `loading` / `error` / `refetch` 标准名）
+- **禁止**乐观更新失败后吞掉错误不回滚
+- **禁止**把"页面级"分页 / 筛选状态塞进 zustand

@@ -1,0 +1,145 @@
+---
+description: 表单规则 — antd Form 统一范式、提交态、校验、与业务 Hook 的解耦
+globs:
+  - "src/pages/**/*.{ts,tsx}"
+  - "src/components/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# 表单规则
+
+> 本项目表单统一使用 **Ant Design Form**（`antd@6`）。文中"Form"特指 antd 的 Form。
+
+## 表单组件归类
+
+| 表单类型 | 归属层 | 文件命名 |
+|---|---|---|
+| 列表页内的筛选条件 | 区域组件 | `<Region>FilterPanel.tsx` |
+| 创建 / 编辑实体（弹窗或页面） | 区域组件 | `<Entity>FormPanel.tsx` 或 `<Entity>FormDialog.tsx` |
+| 单一字段（行内编辑、搜索框） | 纯展示组件 | `<Field>InlineEditor.tsx` |
+
+> 表单**不要**写成纯展示组件——它内部维护 form 状态，必然依赖 hooks。归到区域组件层。
+
+## 受控 vs 非受控
+
+**默认非受控**：让 antd Form 自己管表单状态，通过 `form.getFieldsValue()` / `onFinish` 取值，**不要**为每个字段写 `useState + onChange`。
+
+```tsx
+const [form] = Form.useForm<OrderInput>();
+
+const handleFinish = async (values: OrderInput) => {
+  await onSubmit(values);
+};
+
+<Form form={form} layout="vertical" onFinish={handleFinish} initialValues={initialValues}>
+  <Form.Item name="name" label="名称" rules={[{ required: true, message: "请输入名称" }]}>
+    <Input />
+  </Form.Item>
+  {/* ... */}
+</Form>
+```
+
+**例外**：当某字段的值需要触发**其他区域**联动（如选了客户后右侧加载该客户的订单），用 `Form.useWatch` 订阅，不要把整个 form 提升为 useState。
+
+## 提交态契约
+
+提交按钮必须用 `Button` 的 `loading` 属性 + 表单整体 `disabled` 防重复提交：
+
+```tsx
+const [submitting, setSubmitting] = useState(false);
+
+const handleFinish = async (values: OrderInput) => {
+  setSubmitting(true);
+  try {
+    await onSubmit(values);          // onSubmit 是父组件传下来的 prop
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+<Form form={form} disabled={submitting} onFinish={handleFinish}>
+  {/* ... */}
+  <Button type="primary" htmlType="submit" loading={submitting}>保存</Button>
+</Form>
+```
+
+> **不要**把 `submitting` 状态提到业务 Hook 里——它属于"这个表单实例自己"的状态。业务 Hook 只暴露异步 action 函数。
+
+## 校验
+
+| 校验类型 | 位置 |
+|---|---|
+| 字段必填、长度、正则、自定义同步规则 | `Form.Item` 的 `rules` 数组 |
+| 跨字段校验（"结束日期 > 开始日期"） | `Form.Item` 的 `dependencies` + `validator` |
+| 提交后由后端返回的字段错误 | `form.setFields([{ name, errors: [msg] }])` |
+| 复杂业务校验、多步骤 | 抽到独立 util 函数，在 `validator` 里调用 |
+
+> 当校验逻辑超出 antd `rules` 表达力（如条件分支多、需要类型推导）时，可在 PR 中提议引入 zod，但**不在本规则强制**。
+
+## 字段错误来自后端
+
+```tsx
+const handleFinish = async (values: OrderInput) => {
+  setSubmitting(true);
+  try {
+    await onSubmit(values);
+  } catch (err) {
+    if (isFieldErrorResponse(err)) {
+      form.setFields(
+        Object.entries(err.fieldErrors).map(([name, errors]) => ({ name, errors })),
+      );
+      return;
+    }
+    message.error(err instanceof Error ? err.message : "保存失败");
+  } finally {
+    setSubmitting(false);
+  }
+};
+```
+
+> `message` 来自 `App.useApp()`，禁止直接 import 静态方法（详见 `error-handling.rule.mdc`）。
+
+## 编辑场景的初始值
+
+编辑现有实体时，用 `initialValues` 初始化，**不要**用 `useEffect` + `form.setFieldsValue` 手动同步：
+
+```tsx
+// ✅ 通过 key 强制重置 form 实例
+<EntityFormPanel key={selectedId ?? "new"} initialValues={selectedEntity} />
+
+// ❌ 用 useEffect 同步会有时序问题
+useEffect(() => { form.setFieldsValue(selectedEntity); }, [selectedEntity]);
+```
+
+> 例外：表单作为"常驻面板"且实体只是字段更新，可以用 `form.setFieldsValue`，但要清楚自己在做什么。
+
+## 表单与业务 Hook 的边界
+
+```
+┌─────────────────────────────────────────────────────┐
+│ 区域组件 EntityFormPanel                            │
+│  · form 实例、字段校验规则、submitting state        │
+│  · onFinish 调用 props.onSubmit                     │
+└─────────────────────────────────────────────────────┘
+                    ↑ onSubmit prop
+┌─────────────────────────────────────────────────────┐
+│ 页面入口                                            │
+│  · 从 useEntity() 拿 createEntity / updateEntity    │
+│  · 包成统一的 onSubmit 传给 FormPanel               │
+└─────────────────────────────────────────────────────┘
+                    ↑ createEntity / updateEntity
+┌─────────────────────────────────────────────────────┐
+│ 业务 Hook useEntity                                 │
+│  · API 调用、列表刷新、错误处理                     │
+│  · 不感知 form 实例、不感知 submitting              │
+└─────────────────────────────────────────────────────┘
+```
+
+## 禁止事项
+
+- **禁止**为每个字段写 `useState + onChange`（让 antd Form 自己管）
+- **禁止**把 `submitting` 状态提到业务 Hook（属于表单实例本地状态）
+- **禁止**`useEffect` 同步 `selectedEntity → form.setFieldsValue`（用 `key` 重置 form）
+- **禁止**直接 `import { message } from "antd"` 调用（用 `App.useApp().message`）
+- **禁止**在 `rules` 里写复杂业务逻辑（抽出独立 validator 函数）
+- **禁止**忘记 `setSubmitting(false)` 的 finally 分支（用户会卡在 loading 上）

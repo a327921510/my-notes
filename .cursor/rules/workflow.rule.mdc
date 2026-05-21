@@ -1,0 +1,64 @@
+---
+description: 标准开发流程与提交前自检清单
+alwaysApply: true
+---
+
+# 开发流程与自检
+
+## 标准流程
+
+| 任务类型 | 流程 |
+|---|---|
+| 新功能 | 需求确认 → 类型定义 → 编码（按四层架构） → 自检 → PR |
+| Bug 修复 | 复现 → 定位 → 最小修改 → 验证不影响其他场景 → PR |
+| 重构 | 确认现有行为不变 → 小步增量 → 每步本地构建/测试 → PR |
+| API 对接 | 类型 → API 模块 → 业务 Hook → UI 调用 → PR |
+| 样式调整 | Tailwind class → CSS Modules（如需） → ConfigProvider token（仅 antd 主题）|
+
+## 编码前
+
+1. **澄清需求**：交付物是什么？验收标准？涉及哪些文件？
+2. **拆分任务**：每个子任务在 1 次提交内能完成。
+3. **风险评估**：是否破坏现有 API？是否影响其他页面？是否有性能/安全敏感点？
+
+## 提交前自检清单
+
+```
+架构:    □ 页面遵循四层架构          □ 区域间不直接耦合
+                                     □ 业务 Hook 不感知 UI
+类型:    □ 没有新增 any              □ 没有 @ts-ignore
+                                     □ Props 类型有 export
+样式:    □ 没有内联 style（动态值除外）□ 没有 !important
+                                     □ 没有全局 .ant-xxx 覆盖
+性能:    □ 纯展示组件用 memo         □ 传给 memo 子组件的回调用 useCallback
+                                     □ 列表项 .map() 不传内联函数
+状态:    □ 页面级状态没塞进 zustand   □ store 用 selector 订阅
+API:     □ 没有直接 import axios     □ 业务逻辑不在 API 模块里
+数据:    □ 业务 Hook 暴露 data/loading/error/refetch 标准字段
+         □ 三态 UI 都有处理（loading / error / empty）
+         □ 列表筛选场景配了 AbortSignal 取消
+表单:    □ 用 antd Form 而非 useState 管表单状态
+         □ submitting 在 finally 里复位
+         □ 编辑场景用 key 重置 form 而非 setFieldsValue
+错误:    □ message/notification 用 App.useApp() 而非静态方法
+         □ 业务 Hook 没直接弹 toast      □ catch 不吞错
+a11y:    □ 可点击元素是 button/a 而非 div/span
+         □ 图标按钮有 aria-label        □ 弹窗关闭后焦点回到触发元素
+         □ 状态不只靠颜色传达           □ placeholder 没替代 label
+工具:    □ 通用工具优先用 es-toolkit 而非自己写
+         □ 没有 import lodash / es-toolkit/compat
+         □ 自实现工具放在 src/utils/<domain>.ts 且为纯函数
+注释:    □ 没有"自我解释"的废话注释   □ 不在代码里写 TODO 而不跟踪
+```
+
+## 提交规范
+
+- 一次提交 = 一个逻辑变更（不要批量提交无关改动）
+- commit message 用中文或英文都可以，但要描述**做了什么**而非"修改"/"更新"
+- 推荐 conventional commits 前缀：`feat:` / `fix:` / `refactor:` / `docs:` / `chore:`
+
+## 何时需要在动手前先停下
+
+- 任务涉及全局 router / 全局 store / `services/request.ts` 等"基础设施" → 先和用户对齐设计
+- 任务可能引入新依赖 → 先和用户确认是否引入
+- 任务涉及 ≥3 个文件的相互联动 → 先列计划，确认后再开工

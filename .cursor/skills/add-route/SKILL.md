@@ -1,13 +1,11 @@
 ---
 name: add-route
-description: 在 apps/web 中注册新路由并创建页面入口文件。当用户需要为 Web 端添加新页面路由时使用。仅适用于 apps/web。
+description: 注册新路由并创建页面入口文件。当用户需要添加新页面路由时使用。
 ---
 
-# 注册新路由（Web 端）
+# 注册新路由
 
-将新页面注册到 `apps/web/src/router/routes.tsx` 并创建页面入口骨架。
-
-> **适用范围**：仅用于 `apps/web`。扩展端（`apps/extension`）为单页 popup，无客户端路由。
+将新页面注册到 `src/router/routes.tsx` 并创建页面入口骨架。
 
 ---
 
@@ -23,7 +21,7 @@ description: 在 apps/web 中注册新路由并创建页面入口文件。当用
 
 ### Step 2：创建页面入口
 
-如果页面文件不存在，创建 `apps/web/src/pages/<PageName>/index.tsx`：
+如果页面文件不存在，创建 `src/pages/<PageName>/index.tsx`：
 
 ```tsx
 export function <PageName>Page() {
@@ -39,7 +37,7 @@ export default <PageName>Page;
 
 ### Step 3：注册路由
 
-在 `apps/web/src/router/routes.tsx` 中添加：
+在 `src/router/routes.tsx` 中添加：
 
 ```tsx
 // 1. 添加 lazy import
@@ -64,4 +62,4 @@ const <PageName> = lazy(() => import("@/pages/<PageName>"));
 - 页面组件用 `React.lazy()` 懒加载
 - 页面入口同时有命名导出和默认导出
 - 新页面默认嵌套在 `MainLayout` 下（除非明确指定）
-- `apps/web/src/router/routes.tsx` 是路由的唯一注册入口，不在其他地方定义路由
+- `routes.tsx` 是路由的唯一注册入口，不在其他地方定义路由

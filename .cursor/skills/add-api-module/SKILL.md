@@ -1,13 +1,11 @@
 ---
 name: add-api-module
-description: 在 apps/web 的 services/modules/ 下新建 API 模块。当用户需要为 Web 端添加新的后端 API 对接、创建 API 模块、或提到"API 服务"时使用。仅适用于 apps/web。
+description: 在 services/modules/ 下新建 API 模块。当用户需要添加新的后端 API 对接、创建 API 模块、或提到"API 服务"时使用。
 ---
 
-# 新建 API 模块（Web 端）
+# 新建 API 模块
 
-在 `apps/web/src/services/modules/` 下创建按业务域拆分的 API 模块。
-
-> **适用范围**：仅用于 `apps/web`。扩展端（`apps/extension`）通过 `@my-notes/sync-client` 包进行网络请求，不使用此模式。
+在 `src/services/modules/` 下创建按业务域拆分的 API 模块。
 
 ---
 
@@ -26,7 +24,7 @@ description: 在 apps/web 的 services/modules/ 下新建 API 模块。当用户
 
 ### Step 2：生成文件
 
-创建 `apps/web/src/services/modules/<domain>.ts`，遵循以下模板：
+创建 `src/services/modules/<domain>.ts`，遵循以下模板：
 
 ```typescript
 import { request } from "../request";
@@ -77,7 +75,7 @@ import { xxxApi } from "@/services/modules/xxx";
 
 ## 规则（必须遵守）
 
-- 统一使用 `apps/web/src/services/request.ts` 的 `request` 实例
+- 统一使用 `src/services/request.ts` 的 `request` 实例
 - 导出一个 `xxxApi` 对象，包含所有 API 方法
 - 入参和返回值必须有类型标注
 - 通用响应类型使用全局 `ApiResponse<T>` 和 `PaginatedResult<T>`

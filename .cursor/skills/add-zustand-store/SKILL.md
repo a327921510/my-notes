@@ -1,13 +1,11 @@
 ---
 name: add-zustand-store
-description: 在 apps/web 的 stores/ 下新建 Zustand 全局 Store。当用户需要为 Web 端添加全局状态、跨页面共享数据时使用。仅适用于 apps/web。
+description: 在 stores/ 下新建 Zustand 全局 Store。当用户需要添加全局状态、跨页面共享数据时使用。
 ---
 
-# 新建 Zustand Store（Web 端）
+# 新建 Zustand Store
 
-在 `apps/web/src/stores/` 下创建按业务域拆分的全局 Store。
-
-> **适用范围**：仅用于 `apps/web`。扩展端（`apps/extension`）使用 `useState` + Dexie（`useLiveQuery`）管理状态，不使用 Zustand。
+在 `src/stores/` 下创建按业务域拆分的全局 Store。
 
 ---
 
@@ -38,7 +36,7 @@ description: 在 apps/web 的 stores/ 下新建 Zustand 全局 Store。当用户
 
 ### Step 2：生成文件
 
-创建 `apps/web/src/stores/use<Domain>Store.ts`：
+创建 `src/stores/use<Domain>Store.ts`：
 
 ```typescript
 import { create } from "zustand";

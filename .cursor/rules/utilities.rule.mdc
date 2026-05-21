@@ -1,0 +1,95 @@
+---
+description: 工具函数选型规则 — 优先 es-toolkit，第三方覆盖不到才自实现
+globs:
+  - "src/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# 工具函数选型规则
+
+## 决策顺序（必须严格按此优先级）
+
+1. **优先 [es-toolkit](https://es-toolkit.dev/)** —— 数组 / 对象 / 函数 / 字符串 / 谓词等通用工具
+2. **领域专用第三方库** —— 日期用 `dayjs`/`date-fns`；URL 用浏览器 `URL`/`URLSearchParams`；ID 用 `nanoid`/`uuid`
+3. **自实现到 `src/utils/`** —— 仅当上面两层都覆盖不到时
+
+> 不允许"先自己撸一个再说"。**必须**先确认 es-toolkit 是否有等价 API（[官方文档](https://es-toolkit.dev/) 或 `node_modules/es-toolkit/dist/index.d.ts`）。
+
+## 必须用 es-toolkit 的场景（高频）
+
+| 场景 | ❌ 自己写 | ✅ 用 es-toolkit |
+|---|---|---|
+| 数组去重 | `[...new Set(arr)]`（仅 primitive 可用） | `import { uniq, uniqBy } from "es-toolkit"` |
+| 数组分组 | `arr.reduce((acc, x) => { ... }, {})` | `import { groupBy } from "es-toolkit"` |
+| 数组分块 | 自己写 for 循环切片 | `import { chunk } from "es-toolkit"` |
+| 对象 pick / omit | `const { a, b, ...rest } = obj` | `import { pick, omit } from "es-toolkit"` |
+| 深合并对象 | 递归手写 | `import { merge } from "es-toolkit"` |
+| 深克隆 | `JSON.parse(JSON.stringify(x))`（丢函数/Date） | `import { cloneDeep } from "es-toolkit"` |
+| 深相等 | 递归手写 | `import { isEqual } from "es-toolkit"` |
+| debounce / throttle | 自己写定时器 | `import { debounce, throttle } from "es-toolkit"` |
+| 函数节流（leading/trailing） | 各种边界写错 | `import { throttle } from "es-toolkit"`（带 options） |
+| memoize | 自己写 cache map | `import { memoize } from "es-toolkit"` |
+| 字符串大小写转换 | 正则替换 | `camelCase` / `kebabCase` / `snakeCase` |
+| 判空 | `!x \|\| (Array.isArray(x) && x.length === 0)` 等组合 | `import { isEmpty } from "es-toolkit"` |
+| 延时 | `new Promise(r => setTimeout(r, ms))` | `import { delay } from "es-toolkit"` |
+
+## 导入规范
+
+- **统一从主入口导入**：`import { uniq, debounce } from "es-toolkit"`
+- **禁止**整体 import：`import * as ESToolkit from "es-toolkit"`（破坏 tree shaking）
+- **不要**用 `es-toolkit/compat`（lodash 兼容层）—— 项目无历史 lodash 代码，应直接用 modern API
+
+## 何时自实现到 `src/utils/`
+
+允许自实现的场景：
+
+| 类别 | 示例 | 原因 |
+|---|---|---|
+| 浏览器 API 包装 | `storage.ts`（localStorage 异常隔离）、剪贴板、文件下载 | es-toolkit 是 runtime-agnostic 库，不碰浏览器 API |
+| 项目特定格式化 | `format.ts`（中文日期 / 业务货币 / 状态文案映射） | 含项目业务语义，不通用 |
+| 项目特定校验 | `validation.ts`（手机号 / 身份证 / 业务规则） | 业务规则不通用 |
+| 项目特定常量映射 | 状态码 → label、错误码 → 提示 | 业务字典 |
+
+**禁止**自实现的场景（即使代码很短）：
+
+- 数组 / 对象 / 函数 / 字符串的通用操作（es-toolkit 都有）
+- "我觉得直接写更简单"的小工具（短代码也带来"看到 import 不知道去哪儿找"的认知成本）
+
+## 自实现工具的规范
+
+放在 `src/utils/<domain>.ts`，按业务域拆文件：
+
+```typescript
+// src/utils/format.ts ✅
+export function formatCurrency(amount: number, currency = "CNY"): string {
+  return new Intl.NumberFormat("zh-CN", { style: "currency", currency }).format(amount);
+}
+```
+
+要求：
+- **纯函数**：相同输入 → 相同输出，无副作用（IO 类除外，如 storage）
+- **完整 TS 类型**：参数和返回值都要标注，禁止 `any`
+- **逐个 `export function`**：不要打包成 default export 对象，便于 tree-shaking
+- **同文件内相关函数聚合**：`format.ts` 全是格式化、`storage.ts` 全是存储；不要混
+- **无业务依赖**：utils 不应 import zustand store / API 模块（那是业务 Hook 的事）
+
+## 与现有 `src/utils/` 的关系
+
+当前目录下：
+- `format.ts`：日期格式化用 `Intl`，业务相关 → ✅ 合理保留
+- `storage.ts`：localStorage 包装 + 异常处理 → ✅ es-toolkit 不覆盖，合理保留
+
+**新增文件前先问自己**：
+
+> "我要写的功能，es-toolkit 真没有同名 / 同义 API 吗？"
+
+如果有，**直接用 es-toolkit**，不要在 `src/utils/` 里加包装层（"通用 → 业务"的多余抽象只增加维护成本）。
+
+## 禁止事项
+
+- **禁止** `import _ from "lodash"` / `import { ... } from "lodash"` —— 项目用 es-toolkit
+- **禁止**用 `es-toolkit/compat`（仅迁移老 lodash 项目用，本项目无此需求）
+- **禁止**用 `import * as ESToolkit from "es-toolkit"`（破坏 tree shaking）
+- **禁止**重复造 es-toolkit 已有的轮子（`uniq` / `chunk` / `debounce` / `pick` / `omit` / `cloneDeep` / `isEqual` / `isEmpty` / `groupBy` / `keyBy` / `merge` / `camelCase` / `kebabCase` 等）
+- **禁止**在 `src/utils/` 写组件 / Hook（这里只放纯函数）
+- **禁止**在 `src/utils/` 里 import 业务模块（store / API / 页面）—— 工具应反向被业务依赖

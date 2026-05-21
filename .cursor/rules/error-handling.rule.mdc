@@ -1,0 +1,96 @@
+---
+description: 错误处理规则 — 责任边界、用户提示、ErrorBoundary、Result 模式
+alwaysApply: true
+---
+
+# 错误处理规则
+
+## 三层责任边界
+
+| 层 | 处理什么错误 | 怎么处理 |
+|---|---|---|
+| **请求拦截器**（`services/request.ts`） | HTTP 错误、`code !== 0`、401 | 401 → 清登录 + 跳转；其他 → `Promise.reject(Error)` 抛给上层 |
+| **业务 Hook**（`pages/<Name>/hooks/use<Domain>.ts`） | 业务可预期失败、需要回滚的副作用 | `try/catch` 后写入 `error` state、回滚乐观更新；**不直接弹 toast** |
+| **组件层**（页面入口 / 区域组件） | 把错误转成用户可读的 UI | 用 `App.useApp().message.error()` 提示；或在区域内显示空态/重试按钮 |
+
+> 单一职责：拦截器只管协议层、Hook 只管数据状态、组件只管 UI 表达。**不要在 Hook 内调 `message.error`**——会导致同一错误重复弹窗、且组件无法替换提示样式。
+
+## 用户提示统一走 antd App
+
+项目根已用 `<App>` 包裹（`src/App.tsx`）。组件内**必须**用 hook 形式，不要直接 import `message` / `notification`：
+
+```tsx
+import { App } from "antd";
+
+function SomeComponent() {
+  const { message } = App.useApp();
+
+  const handleSave = async () => {
+    try {
+      await save();
+      message.success("保存成功");
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "保存失败");
+    }
+  };
+}
+```
+
+> 直接 `import { message } from "antd"` 调用静态方法会**绕开 ConfigProvider 主题**，禁止使用。
+
+## Result 模式（业务可预期失败）
+
+当一个操作存在"预期会失败、调用方需要分支处理"的场景（如表单校验、业务规则违反、资源已存在），用 Result 类型而不是抛异常：
+
+```typescript
+type Result<T, E = string> =
+  | { success: true; data: T }
+  | { success: false; error: E };
+```
+
+| 用 Result | 用 throw |
+|---|---|
+| 业务规则失败（"库存不足"、"用户名已存在"） | 真正的异常（网络断、5xx、bug） |
+| 表单/数据校验失败 | 不变量被破坏（assert 类） |
+| 调用方必须分支处理 | 调用方无法处理、应当冒泡到边界 |
+
+## ErrorBoundary 部署位置
+
+至少 2 层：
+
+1. **App 根**：兜底未捕获的渲染错误，显示降级 UI（"页面出错了，请刷新"）
+2. **页面入口**：每个 `pages/<Name>/index.tsx` 的根可选包一层 ErrorBoundary，避免一个页面挂掉拖垮整个 SPA
+
+> React 19 仍未内置 `<ErrorBoundary>` 组件，必须手写 class 组件或用 `react-error-boundary` 等库。本项目当前未引入第三方库——新增页面如确实需要细粒度容错，先在 PR 中说明再考虑引入。
+
+## 异步错误的最低标准
+
+```typescript
+// ❌ 静默吞错
+async function loadData() {
+  const res = await api.getList();
+  setData(res);
+}
+
+// ✅ 至少：catch + 写入 error state + 关闭 loading
+async function loadData() {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await api.getList();
+    setData(res);
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "加载失败");
+  } finally {
+    setLoading(false);
+  }
+}
+```
+
+## 禁止事项
+
+- **禁止**在请求拦截器里弹 `message.error`（拦截器是协议层，不知道业务上下文）
+- **禁止**在业务 Hook 里直接调用 `message.*` / `notification.*`
+- **禁止**直接 `import { message, notification, Modal } from "antd"` 调用静态方法（必须用 `App.useApp()`）
+- **禁止**`catch (err)` 后什么都不做（至少 `console.error` + 写入 error state）
+- **禁止**用 `throw new Error("..."`) 表达"业务可预期失败"——用 Result 类型让调用方必须显式处理
