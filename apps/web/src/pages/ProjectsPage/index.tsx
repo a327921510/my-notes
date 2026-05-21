@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import type { ProjectsSearchNavigationState } from "@/types/globalSearchNavigation";
-import { useAuthStore } from "@/stores/useAuthStore";
 
 import { ProjectDetailPanel } from "./components/ProjectDetailPanel";
 import { ProjectsListPanel } from "./components/ProjectsListPanel";
@@ -11,7 +10,6 @@ import { useProjectsState } from "./hooks/useProjectsState";
 
 export function ProjectsPage() {
   const { message } = App.useApp();
-  const token = useAuthStore((s) => s.token);
   const location = useLocation();
   const navigate = useNavigate();
   const { focusProjectId, focusItemId } = useMemo(() => {
@@ -33,9 +31,6 @@ export function ProjectsPage() {
     addItem,
     updateItem,
     removeItem,
-    syncProjectData,
-    pullProjectData,
-    syncAllWithConflict,
   } = useProjectsState();
 
   useEffect(() => {
@@ -66,62 +61,26 @@ export function ProjectsPage() {
     [updateProjectName],
   );
 
-  const handleSync = useCallback(async () => {
-    try {
-      await syncProjectData(token);
-      message.success("项目与站点数据同步完成");
-    } catch (e) {
-      message.error((e as Error).message);
-    }
-  }, [message, syncProjectData, token]);
-
-  const handlePullFromCloud = useCallback(async () => {
-    try {
-      const res = await syncAllWithConflict(token);
-      message.success(`拉取完成：站点 ${res.pulledSites}、条目 ${res.pulledItems}`);
-    } catch (e) {
-      message.error((e as Error).message);
-    }
-  }, [message, syncAllWithConflict, token]);
-
-  const handlePushToCloud = useCallback(async () => {
-    try {
-      await syncProjectData(token);
-      message.success("已同步全部本地数据到云端");
-    } catch (e) {
-      message.error((e as Error).message);
-    }
-  }, [message, syncProjectData, token]);
-
-  const handlePull = useCallback(async () => {
-    try {
-      const res = await pullProjectData(token);
-      message.success(`拉取完成：项目 ${res.projectsApplied}，站点 ${res.sitesApplied}，条目 ${res.itemsApplied}`);
-    } catch (e) {
-      message.error((e as Error).message);
-    }
-  }, [message, pullProjectData, token]);
-
   const handleDeleteProject = useCallback(
     async (projectId: string) => {
       try {
-        await removeProject(projectId, { authToken: token });
+        await removeProject(projectId);
       } catch (e) {
         message.error((e as Error).message);
       }
     },
-    [message, removeProject, token],
+    [message, removeProject],
   );
 
   const handleDeleteItem = useCallback(
     async (projectId: string, itemId: string) => {
       try {
-        await removeItem(projectId, itemId, { authToken: token });
+        await removeItem(projectId, itemId);
       } catch (e) {
         message.error((e as Error).message);
       }
     },
-    [message, removeItem, token],
+    [message, removeItem],
   );
 
   if (!isLocalDbReady) {
@@ -131,10 +90,8 @@ export function ProjectsPage() {
       </div>
     );
   }
-  console.log(33333, focusProjectId, focusItemId);
   return (
-    <>
-      <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
+    <Splitter className="overflow-hidden rounded-lg shadow-[0_0_10px_rgba(0,0,0,0.08)]">
       <Splitter.Panel defaultSize={320} min={260} max={480}>
         <div className="h-full p-3">
           <ProjectsListPanel
@@ -146,8 +103,6 @@ export function ProjectsPage() {
             onCreateProject={handleCreateProject}
             onDeleteProject={handleDeleteProject}
             onRenameProject={handleRenameProject}
-            onPullFromCloud={handlePullFromCloud}
-            onPushToCloud={handlePushToCloud}
           />
         </div>
       </Splitter.Panel>
@@ -158,15 +113,12 @@ export function ProjectsPage() {
             onAddItem={addItem}
             onUpdateItem={updateItem}
             onDeleteItem={handleDeleteItem}
-            onSync={handleSync}
-            onPull={handlePull}
             focusItemId={focusItemId}
             onFocusItemConsumed={focusItemId ? clearProjectsNavState : undefined}
           />
         </div>
       </Splitter.Panel>
     </Splitter>
-    </>
   );
 }
 

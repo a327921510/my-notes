@@ -2,7 +2,6 @@ import { db, type NotesDB } from "@my-notes/local-db";
 import {
   buildProjectCredentialMirrorItemName,
   createId,
-  nextSyncAfterEdit,
   projectCredentialMirrorNamesPrefix,
   type ProjectCredentialMirrorKind,
 } from "@my-notes/shared";
@@ -46,7 +45,6 @@ async function findOrCreateSiteForProjectAddress(
     projectId,
     updatedAt: Date.now(),
     version: 1,
-    syncStatus: "local_only",
   });
   return siteId;
 }
@@ -114,10 +112,8 @@ export async function syncProjectCredentialMirrors(projectId: string, markdown: 
           content?: string;
           projectId?: string | null;
           updatedAt: number;
-          syncStatus: ReturnType<typeof nextSyncAfterEdit>;
         } = {
           updatedAt: Date.now(),
-          syncStatus: nextSyncAfterEdit(cur.syncStatus),
         };
         let changed = false;
         if (cur.siteId !== u.siteId) {
@@ -144,7 +140,6 @@ export async function syncProjectCredentialMirrors(projectId: string, markdown: 
           name: u.name,
           content: u.content,
           updatedAt: Date.now(),
-          syncStatus: "local_only",
         });
       }
     }

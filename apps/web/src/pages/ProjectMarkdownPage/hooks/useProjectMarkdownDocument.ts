@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { db } from "@my-notes/local-db";
-import { createId, nextSyncAfterEdit, PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME } from "@my-notes/shared";
+import { createId, PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME } from "@my-notes/shared";
 
 import { syncProjectCredentialMirrors } from "../utils/syncProjectCredentialMirrors";
 
@@ -23,7 +23,6 @@ export function useProjectMarkdownDocument(projectId: string | null) {
       await db.site_items.update(existing.id, {
         content: text,
         updatedAt: Date.now(),
-        syncStatus: nextSyncAfterEdit(existing.syncStatus),
       });
     } else {
       await db.site_items.add({
@@ -32,7 +31,6 @@ export function useProjectMarkdownDocument(projectId: string | null) {
         name: PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME,
         content: text,
         updatedAt: Date.now(),
-        syncStatus: "local_only",
       });
     }
     await syncProjectCredentialMirrors(targetProjectId, text);

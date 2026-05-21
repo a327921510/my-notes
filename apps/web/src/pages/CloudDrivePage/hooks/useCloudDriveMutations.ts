@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
 import { db } from "@my-notes/local-db";
-import { createId, nextSyncAfterEdit } from "@my-notes/shared";
+import { createId } from "@my-notes/shared";
 
 const ILLEGAL_FILE_NAME_CHARS = /[\\/:*?"<>|]/;
 
@@ -30,7 +30,6 @@ export function useCloudDriveMutations() {
       path: `/${trimmed}`,
       createdAt: now,
       updatedAt: now,
-      syncStatus: "local_only",
     });
     return id;
   }, []);
@@ -68,7 +67,6 @@ export function useCloudDriveMutations() {
       localBlobRef: blobKey,
       createdAt: now,
       updatedAt: now,
-      syncStatus: "local_only",
     });
     return id;
   }, []);
@@ -87,21 +85,11 @@ export function useCloudDriveMutations() {
     await db.drive_files.update(fileId, {
       name: trimmed,
       updatedAt: Date.now(),
-      syncStatus: nextSyncAfterEdit(current.syncStatus),
     });
   }, []);
 
   const removeFile = useCallback(async (fileId: string) => {
     const current = await db.drive_files.get(fileId);
-    if (current?.cloudId) {
-      await db.drive_file_tombstones.put({
-        id: createId("drive_delete"),
-        clientFileId: current.id,
-        cloudId: current.cloudId,
-        deletedAt: Date.now(),
-        syncStatus: "pending",
-      });
-    }
     if (current?.localBlobRef) {
       await db.blobs.delete(current.localBlobRef);
     }

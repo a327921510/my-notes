@@ -1,20 +1,12 @@
 import { CopyOutlined, DeleteOutlined, EditOutlined, SaveOutlined } from "@ant-design/icons";
-import { formatSiteItemDisplayName, type SyncStatus } from "@my-notes/shared";
-import { Badge, Button, Input, Popconfirm, Space, Typography } from "antd";
+import { formatSiteItemDisplayName } from "@my-notes/shared";
+import { Button, Input, Popconfirm, Space } from "antd";
 import { memo } from "react";
-
-const ITEM_BADGE_STATUS: Record<SyncStatus, "success" | "processing" | "default" | "error" | "warning"> = {
-  synced: "success",
-  dirty: "processing",
-  local_only: "warning",
-  failed: "error",
-};
 
 export type ItemArticleRowItem = {
   id: string;
   name: string;
   content: string;
-  syncStatus: SyncStatus;
 };
 
 export function formatItemArticleCopyLine(item: ItemArticleRowItem): string {
@@ -74,7 +66,12 @@ export const ItemArticleRow = memo(function ItemArticleRow({
             autoSize={{ minRows: 3, maxRows: 8 }}
           />
           <Space>
-            <Button type="primary" icon={<SaveOutlined />} disabled={!canSaveItem} onClick={() => void onSave()}>
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              disabled={!canSaveItem}
+              onClick={() => void onSave()}
+            >
               保存
             </Button>
             <Button onClick={onCancelEdit}>取消</Button>
@@ -87,9 +84,9 @@ export const ItemArticleRow = memo(function ItemArticleRow({
   return (
     <div className="group/item relative border-b border-gray-100 px-2 py-2 last:border-b-0">
       <div className="relative z-0 flex gap-2">
-        <span className="shrink-0">
-          <Badge status={ITEM_BADGE_STATUS[item.syncStatus]} text={`${displayName && `${displayName}：`}`} />
-        </span>
+        {displayName ? (
+          <span className="shrink-0 font-medium text-gray-700">{displayName}：</span>
+        ) : null}
         <div className="min-w-0 whitespace-pre-wrap break-words text-gray-800">{displayContent}</div>
       </div>
       <div
@@ -129,7 +126,14 @@ export const ItemArticleRow = memo(function ItemArticleRow({
                 cancelText="取消"
                 onConfirm={() => onDelete(item.id)}
               >
-                <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="删除" title="删除" />
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  aria-label="删除"
+                  title="删除"
+                />
               </Popconfirm>
             </>
           ) : null}

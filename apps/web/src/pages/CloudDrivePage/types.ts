@@ -1,5 +1,3 @@
-import type { SyncStatus } from "@my-notes/shared";
-
 export type DriveFolder = {
   id: string;
   name: string;
@@ -7,8 +5,6 @@ export type DriveFolder = {
   path?: string;
   createdAt: number;
   updatedAt: number;
-  syncStatus: SyncStatus;
-  cloudId?: string;
 };
 
 export type DriveFile = {
@@ -20,21 +16,6 @@ export type DriveFile = {
   checksum?: string;
   localBlobRef?: string;
   localPath?: string;
-  cloudUrl?: string;
-  cloudStorageId?: string;
   createdAt: number;
   updatedAt: number;
-  syncStatus: SyncStatus;
-  cloudId?: string;
-};
-
-export type ConflictRecord = {
-  id: string;
-  entityType: "folder" | "file";
-  entityId: string;
-  field: string;
-  localValue: string;
-  cloudValue: string;
-  resolvedBy: "lww";
-  resolvedAt: number;
 };

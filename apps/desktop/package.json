@@ -1,0 +1,63 @@
+{
+  "name": "@my-notes/desktop",
+  "version": "0.5.0",
+  "private": true,
+  "description": "My Notes 桌面端（Electron），复用 @my-notes/web 构建产物",
+  "main": "dist/main.js",
+  "author": "My Notes",
+  "scripts": {
+    "dev": "node ./scripts/dev.cjs",
+    "build:main": "tsc -p tsconfig.json",
+    "build:web": "pnpm --filter @my-notes/web build",
+    "build": "pnpm run build:web && pnpm run build:main",
+    "start": "electron .",
+    "pack": "pnpm run build && electron-builder --dir",
+    "dist:win": "pnpm run build && electron-builder --win nsis portable --x64",
+    "dist:linux": "pnpm run build && electron-builder --linux AppImage --x64"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.7.2",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.mynotes.desktop",
+    "productName": "MyNotes",
+    "copyright": "Copyright © 2026 My Notes",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "MyNotes"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Office"
+    },
+    "asar": true
+  }
+}

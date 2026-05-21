@@ -1,10 +1,9 @@
 import { PlusOutlined } from "@ant-design/icons";
-import { Button, Empty, Space, Typography, message } from "antd";
+import { App, Button, Empty, Space, Typography } from "antd";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ItemArticleRow, formatItemArticleCopyLine } from "@/components/ItemArticleRow";
 import { SiteSectionHeadingBar } from "@/components/SiteSectionHeadingBar";
-import { SyncBadge } from "@/components/SyncBadge";
 
 import type { ProjectItem, ProjectVM } from "../types";
 
@@ -13,8 +12,6 @@ export type ProjectDetailPanelProps = {
   onAddItem: (projectId: string) => Promise<string>;
   onUpdateItem: (projectId: string, itemId: string, payload: { name: string; content: string }) => Promise<void>;
   onDeleteItem: (projectId: string, itemId: string) => Promise<void>;
-  onSync: () => Promise<void>;
-  onPull: () => Promise<void>;
   focusItemId?: string;
   onFocusItemConsumed?: () => void;
 };
@@ -34,8 +31,8 @@ function formatSiteSectionHeading(item: ProjectItem): string {
 }
 
 export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
-  const { project, onAddItem, onUpdateItem, onDeleteItem, onSync, onPull, focusItemId, onFocusItemConsumed } =
-    props;
+  const { project, onAddItem, onUpdateItem, onDeleteItem, focusItemId, onFocusItemConsumed } = props;
+  const { message } = App.useApp();
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemNameDraft, setItemNameDraft] = useState("");
   const [itemContentDraft, setItemContentDraft] = useState("");
@@ -55,7 +52,7 @@ export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
       void navigator.clipboard.writeText(formatItemArticleCopyLine(item));
       message.success("已复制");
     },
-    [project],
+    [message, project],
   );
 
   const handleEditProjectItem = useCallback(
@@ -103,7 +100,7 @@ export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
     setEditingItemId(null);
     setItemNameDraft("");
     setItemContentDraft("");
-  }, [project, editingItemId, itemContentDraft, itemNameDraft, onUpdateItem]);
+  }, [message, project, editingItemId, itemContentDraft, itemNameDraft, onUpdateItem]);
 
   useEffect(() => {
     if (!focusItemId || focusItemConsumedRef.current || !project) return;
@@ -136,11 +133,8 @@ export function ProjectDetailPanel(props: ProjectDetailPanelProps) {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-solid border-gray-200 p-3">
         <Space wrap>
           <Typography.Text strong>{project.name}</Typography.Text>
-          <SyncBadge status={project.syncStatus} />
         </Space>
         <Space>
-          <Button onClick={() => void onPull()}>拉取云端</Button>
-          <Button onClick={() => void onSync()}>同步到云端</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => void handleAddItem()}>
             新增条目
           </Button>

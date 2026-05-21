@@ -1,8 +1,8 @@
 import { PlusOutlined } from "@ant-design/icons";
-import { Button, Empty, Input, Modal, Select, Space, Typography, message } from "antd";
+import { App, Button, Empty, Input, Modal, Select, Space, Typography } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import { ItemArticleRow, formatItemArticleCopyLine } from "@/components/ItemArticleRow";
-import { SyncBadge } from "@/components/SyncBadge";
 import { parseProjectCredentialMirrorItemName } from "@my-notes/shared";
 
 import type { Site } from "../types";
@@ -13,8 +13,6 @@ export type SiteDetailPanelProps = {
   onAddItem: (siteId: string) => Promise<string>;
   onUpdateItem: (siteId: string, itemId: string, payload: { name: string; content: string }) => Promise<void>;
   onDeleteItem: (siteId: string, itemId: string) => Promise<void>;
-  onSync: () => Promise<void>;
-  onPull: () => Promise<void>;
   onCloneSite: (sourceSiteId: string, payload: { name: string; address: string }) => Promise<void>;
   onSiteProjectChange: (siteId: string, projectId: string | null) => Promise<void>;
   focusItemId?: string;
@@ -28,13 +26,12 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
     onAddItem,
     onUpdateItem,
     onDeleteItem,
-    onSync,
-    onPull,
     onCloneSite,
     onSiteProjectChange,
     focusItemId,
     onFocusItemConsumed,
   } = props;
+  const { message } = App.useApp();
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemNameDraft, setItemNameDraft] = useState("");
   const [itemContentDraft, setItemContentDraft] = useState("");
@@ -49,22 +46,28 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
 
   const canSaveItem = useMemo(() => itemContentDraft.trim().length > 0, [itemContentDraft]);
 
-  const handleCopySiteItem = useCallback((itemId: string) => {
-    if (!site) return;
-    const item = site.items.find((i) => i.id === itemId);
-    if (!item) return;
-    void navigator.clipboard.writeText(formatItemArticleCopyLine(item));
-    message.success("已复制");
-  }, [site]);
+  const handleCopySiteItem = useCallback(
+    (itemId: string) => {
+      if (!site) return;
+      const item = site.items.find((i) => i.id === itemId);
+      if (!item) return;
+      void navigator.clipboard.writeText(formatItemArticleCopyLine(item));
+      message.success("已复制");
+    },
+    [message, site],
+  );
 
-  const handleEditSiteItem = useCallback((itemId: string) => {
-    if (!site) return;
-    const item = site.items.find((i) => i.id === itemId);
-    if (!item || parseProjectCredentialMirrorItemName(item.name)) return;
-    setEditingItemId(itemId);
-    setItemNameDraft(item.name);
-    setItemContentDraft(item.content);
-  }, [site]);
+  const handleEditSiteItem = useCallback(
+    (itemId: string) => {
+      if (!site) return;
+      const item = site.items.find((i) => i.id === itemId);
+      if (!item || parseProjectCredentialMirrorItemName(item.name)) return;
+      setEditingItemId(itemId);
+      setItemNameDraft(item.name);
+      setItemContentDraft(item.content);
+    },
+    [site],
+  );
 
   const handleDeleteSiteItem = useCallback(
     (itemId: string) => {
@@ -102,7 +105,7 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
     setEditingItemId(null);
     setItemNameDraft("");
     setItemContentDraft("");
-  }, [site, editingItemId, itemContentDraft, itemNameDraft, onUpdateItem]);
+  }, [message, site, editingItemId, itemContentDraft, itemNameDraft, onUpdateItem]);
 
   useEffect(() => {
     if (!focusItemId || focusItemConsumedRef.current || !site) return;
@@ -155,7 +158,6 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-solid border-gray-200 p-3">
         <Space wrap>
           <Typography.Text strong>{site.address || "未设置站点地址"}</Typography.Text>
-          <SyncBadge status={site.syncStatus} />
           <Select
             className="min-w-[180px]"
             allowClear
@@ -167,8 +169,6 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
         </Space>
         <Space>
           <Button onClick={openCopyModal}>复制站点信息</Button>
-          <Button onClick={() => void onPull()}>拉取云端</Button>
-          <Button onClick={() => void onSync()}>同步到云端</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => void handleAddItem()}>
             新增条目
           </Button>
@@ -183,8 +183,16 @@ export function SiteDetailPanel(props: SiteDetailPanelProps) {
         cancelText="取消"
       >
         <Space direction="vertical" className="w-full">
-          <Input value={copyName} onChange={(e) => setCopyName(e.target.value)} placeholder="站点名称" />
-          <Input value={copyAddress} onChange={(e) => setCopyAddress(e.target.value)} placeholder="站点地址" />
+          <Input
+            value={copyName}
+            onChange={(e) => setCopyName(e.target.value)}
+            placeholder="站点名称"
+          />
+          <Input
+            value={copyAddress}
+            onChange={(e) => setCopyAddress(e.target.value)}
+            placeholder="站点地址"
+          />
         </Space>
       </Modal>
 

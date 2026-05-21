@@ -1,14 +1,6 @@
-import {
-  CloudDownloadOutlined,
-  CloudUploadOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-  SearchOutlined,
-} from "@ant-design/icons";
+import { DeleteOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { Button, Input, List, Modal, Popconfirm, Select, Space, Typography } from "antd";
 import { useMemo, useState } from "react";
-
-import { SyncBadge } from "@/components/SyncBadge";
 
 import type { Site } from "../types";
 
@@ -23,8 +15,6 @@ export type SitesListPanelProps = {
   onSelectSite: (siteId: string) => void;
   onCreateSite: (payload: { name: string; address: string; projectId?: string | null }) => Promise<void>;
   onDeleteSite: (siteId: string) => Promise<void>;
-  onPullFromCloud: () => Promise<void>;
-  onPushToCloud: () => Promise<void>;
 };
 
 export function SitesListPanel(props: SitesListPanelProps) {
@@ -39,8 +29,6 @@ export function SitesListPanel(props: SitesListPanelProps) {
     onSelectSite,
     onCreateSite,
     onDeleteSite,
-    onPullFromCloud,
-    onPushToCloud,
   } = props;
   const [searchInput, setSearchInput] = useState(searchKeyword);
   const [createOpen, setCreateOpen] = useState(false);
@@ -75,12 +63,10 @@ export function SitesListPanel(props: SitesListPanelProps) {
   return (
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
-        <Typography.Title level={5} style={{ margin: 0 }}>
+        <Typography.Title level={5} className="!m-0">
           站点列表
         </Typography.Title>
         <Space size={4}>
-          <Button type="text" icon={<CloudDownloadOutlined />} onClick={() => void onPullFromCloud()} />
-          <Button type="text" icon={<CloudUploadOutlined />} onClick={() => void onPushToCloud()} />
           <Button type="text" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} />
         </Space>
       </div>
@@ -117,11 +103,7 @@ export function SitesListPanel(props: SitesListPanelProps) {
             const pLabel = site.projectId ? projectLabelMap.get(site.projectId) : null;
             return (
               <List.Item
-                style={{
-                  cursor: "pointer",
-                  padding: "10px 12px",
-                  background: active ? "#e6f4ff" : "transparent",
-                }}
+                className={`cursor-pointer px-3 py-2.5 ${active ? "bg-[#e6f4ff]" : ""}`}
                 onClick={() => onSelectSite(site.id)}
               >
                 <div className="flex w-full items-center justify-between gap-3">
@@ -132,9 +114,6 @@ export function SitesListPanel(props: SitesListPanelProps) {
                         · {pLabel}
                       </Typography.Text>
                     ) : null}
-                    <div>
-                      <SyncBadge status={site.syncStatus} />
-                    </div>
                   </div>
                   <Popconfirm
                     title="确认删除站点？"

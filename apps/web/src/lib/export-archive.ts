@@ -10,7 +10,7 @@ import { db } from "@my-notes/local-db";
 
 export const EXPORT_VERSION = 1 as const;
 
-export interface MyNotesExportPayload {
+export type MyNotesExportPayload = {
   exportVersion: typeof EXPORT_VERSION;
   exportedAt: number;
   folders: FolderRecord[];
@@ -20,7 +20,7 @@ export interface MyNotesExportPayload {
   site_spaces: SiteSpaceRecord[];
   clips: ClipRecord[];
   blobs: { key: string; dataBase64: string }[];
-}
+};
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -65,7 +65,9 @@ export async function buildExportPayload(): Promise<MyNotesExportPayload> {
 }
 
 export function downloadExportJson(payload: MyNotesExportPayload, filename?: string): void {
-  const name = filename ?? `my-notes-export-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`;
+  const name =
+    filename ??
+    `my-notes-export-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`;
   const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -93,25 +95,21 @@ export async function importArchiveMerge(file: File): Promise<void> {
     throw new Error("导出文件格式无效");
   }
 
-  await db.transaction(
-    "rw",
-    db.folders,
-    db.notes,
-    db.images,
-    db.snippets,
-    db.site_spaces,
-    db.clips,
-    db.blobs,
-    async () => {
-      for (const f of data.folders ?? []) await db.folders.put(f);
-      for (const n of data.notes ?? []) await db.notes.put(n);
-      for (const i of data.images ?? []) await db.images.put(i);
-      for (const s of data.snippets ?? []) await db.snippets.put(s);
-      for (const sp of data.site_spaces ?? []) await db.site_spaces.put(sp);
-      for (const c of data.clips ?? []) await db.clips.put(c);
-      for (const b of data.blobs) {
-        await db.blobs.put({ key: b.key, blob: base64ToBlob(b.dataBase64) });
-      }
-    },
-  );
+  /** Dexie transaction signature limits the number of explicit tables; chunk by domain. */
+  await db.transaction("rw", [db.folders, db.notes, db.images], async () => {
+    for (const f of data.folders ?? []) await db.folders.put(f);
+    for (const n of data.notes ?? []) await db.notes.put(n);
+    for (const i of data.images ?? []) await db.images.put(i);
+  });
+  await db.transaction("rw", [db.snippets, db.site_spaces, db.clips], async () => {
+    for (const s of data.snippets ?? []) await db.snippets.put(s);
+    for (const sp of data.site_spaces ?? []) await db.site_spaces.put(sp);
+    for (const c of data.clips ?? []) await db.clips.put(c);
+  });
+  const blobs = data.blobs;
+  await db.transaction("rw", db.blobs, async () => {
+    for (const b of blobs) {
+      await db.blobs.put({ key: b.key, blob: base64ToBlob(b.dataBase64) });
+    }
+  });
 }

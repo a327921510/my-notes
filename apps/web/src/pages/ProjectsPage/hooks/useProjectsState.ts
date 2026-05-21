@@ -5,17 +5,9 @@ import { db, propagateSiteProjectToItems } from "@my-notes/local-db";
 import {
   createId,
   isProjectCredentialMirrorItemName,
-  nextSyncAfterEdit,
   PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME,
   projectCredentialMirrorNamesPrefix,
 } from "@my-notes/shared";
-import {
-  deleteProjectOnCloud,
-  deleteSiteItemOnCloud,
-  pullSitesFromCloud,
-  syncAllSitesWithConflict,
-  syncDirtySitesToCloud,
-} from "@my-notes/sync-client";
 
 import type { ProjectItem, ProjectVM } from "../types";
 
@@ -90,8 +82,6 @@ export function useProjectsState() {
     return projectRows.map((row) => ({
       id: row.id,
       name: row.name,
-      syncStatus: row.syncStatus,
-      cloudId: row.cloudId,
       items: sortProjectItemsForDisplay(
         itemRows
           .filter(
@@ -107,8 +97,6 @@ export function useProjectsState() {
               name: item.name,
               content: item.content,
               updatedAt: item.updatedAt,
-              syncStatus: item.syncStatus,
-              cloudId: item.cloudId,
               siteId: item.siteId ?? null,
               siteAddress: site?.address,
               siteName: site?.name,
@@ -135,7 +123,6 @@ export function useProjectsState() {
       id,
       name: payload.name.trim(),
       updatedAt: Date.now(),
-      syncStatus: "local_only",
     });
     setPickedProjectId(id);
   }, []);
@@ -146,15 +133,10 @@ export function useProjectsState() {
     await db.projects.update(projectId, {
       name: name.trim(),
       updatedAt: Date.now(),
-      syncStatus: nextSyncAfterEdit(current.syncStatus),
     });
   }, []);
 
-  const removeProject = useCallback(async (projectId: string, opts?: { authToken?: string | null; apiBase?: string }) => {
-    const token = opts?.authToken ?? null;
-    if (token) {
-      await deleteProjectOnCloud(token, projectId, { apiBase: opts?.apiBase });
-    }
+  const removeProject = useCallback(async (projectId: string) => {
     await db.transaction("rw", db.projects, db.sites, db.site_items, async () => {
       const mirrorPrefix = projectCredentialMirrorNamesPrefix(projectId);
       const mirrorRows = await db.site_items.filter((it) => it.name.startsWith(mirrorPrefix)).toArray();
@@ -173,7 +155,6 @@ export function useProjectsState() {
         await db.sites.update(s.id, {
           projectId: undefined,
           updatedAt: Date.now(),
-          syncStatus: nextSyncAfterEdit(s.syncStatus),
         });
       }
       await db.projects.delete(projectId);
@@ -188,49 +169,30 @@ export function useProjectsState() {
       name: "",
       content: "",
       updatedAt: Date.now(),
-      syncStatus: "local_only",
     });
     return id;
   }, []);
 
   const updateItem = useCallback(
-    async (projectId: string, itemId: string, patch: Partial<Pick<ProjectItem, "name" | "content">>) => {
+    async (
+      projectId: string,
+      itemId: string,
+      patch: Partial<Pick<ProjectItem, "name" | "content">>,
+    ) => {
       const current = await db.site_items.get(itemId);
       if (!current || (current.projectId ?? null) !== projectId) return;
       await db.site_items.update(itemId, {
         ...patch,
         updatedAt: Date.now(),
-        syncStatus: nextSyncAfterEdit(current.syncStatus),
       });
     },
     [],
   );
 
-  type RemoteOpts = { authToken?: string | null; apiBase?: string };
-
-  const removeItem = useCallback(async (projectId: string, itemId: string, opts?: RemoteOpts) => {
+  const removeItem = useCallback(async (projectId: string, itemId: string) => {
     const current = await db.site_items.get(itemId);
     if (!current || (current.projectId ?? null) !== projectId) return;
-    const token = opts?.authToken ?? null;
-    if (token) {
-      await deleteSiteItemOnCloud(token, itemId, { apiBase: opts?.apiBase });
-    }
     await db.site_items.delete(itemId);
-  }, []);
-
-  const syncProjectData = useCallback(async (token: string | null) => {
-    if (!token) throw new Error("请先登录后再同步");
-    await syncDirtySitesToCloud(db, token, {});
-  }, []);
-
-  const pullProjectData = useCallback(async (token: string | null) => {
-    if (!token) throw new Error("请先登录后再拉取");
-    return pullSitesFromCloud(db, token, {});
-  }, []);
-
-  const syncAllWithConflict = useCallback(async (token: string | null) => {
-    if (!token) throw new Error("请先登录后再同步");
-    return syncAllSitesWithConflict(db, token, {});
   }, []);
 
   return {
@@ -248,8 +210,5 @@ export function useProjectsState() {
     addItem,
     updateItem,
     removeItem,
-    syncProjectData,
-    pullProjectData,
-    syncAllWithConflict,
   };
 }
