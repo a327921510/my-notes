@@ -2,13 +2,11 @@ import { Empty, Input, Space, Splitter } from "antd";
 import { useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-
-import type { NotesSearchNavigationState } from "@/types/globalSearchNavigation";
-
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { pruneNoteImagesNotReferenced } from "@/lib/noteContentImages";
+import type { NotesSearchNavigationState } from "@/types/globalSearchNavigation";
 import { db } from "@my-notes/local-db";
 import { createId } from "@my-notes/shared";
-import { pruneNoteImagesNotReferenced } from "@/lib/noteContentImages";
 
 import { BreadcrumbBar } from "./components/BreadcrumbBar";
 import { NotesFolderTree, type NotesTreeSelection } from "./components/NotesFolderTree";
@@ -74,14 +72,10 @@ export function NotesPage() {
     await deleteNote(selectedNoteId, folderId);
   }, [deleteNote, selectedNoteId, folderId]);
 
-  const handleGoToSyncedFiles = useCallback(() => {
-    navigate("/synced");
-  }, [navigate]);
-
   const editorKey = useMemo(() => selectedNote?.id ?? "no-note", [selectedNote?.id]);
 
   return (
-    <Splitter style={{ borderRadius: 8, boxShadow: "0 0 10px rgba(0, 0, 0, 0.08)", overflow: "hidden" }}>
+    <Splitter className="overflow-hidden rounded-lg shadow-[0_0_10px_rgba(0,0,0,0.08)]">
       <Splitter.Panel defaultSize={280} min={240} max={480}>
         <div className="h-full p-3">
           <NotesFolderTree
@@ -100,12 +94,13 @@ export function NotesPage() {
               <BreadcrumbBar
                 selectedFolder={selectedFolder ?? undefined}
                 selectedNote={selectedNote}
-                onGoToSyncedFiles={handleGoToSyncedFiles}
                 onDeleteNote={() => void handleDeleteNote()}
               />
               <Input
                 value={selectedNote.title}
-                onChange={(e) => void saveNote(selectedNoteId, folderId, { title: e.target.value })}
+                onChange={(e) =>
+                  void saveNote(selectedNoteId, folderId, { title: e.target.value })
+                }
                 placeholder="标题"
               />
               <RichTextEditor

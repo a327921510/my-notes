@@ -12,12 +12,6 @@ import { TitleRender } from "./TitleRender";
 
 export type FolderOption = { id: string; name: string };
 
-type TreeNode = {
-  key: string;
-  title: string;
-  children?: { key: string; title: string; note: NoteRecord }[];
-};
-
 const EMPTY_FOLDERS: FolderOption[] = [];
 const EMPTY_NOTES: NoteRecord[] = [];
 
