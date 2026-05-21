@@ -2,7 +2,7 @@ import { App } from "antd";
 import { useCallback, useMemo } from "react";
 import type { NoteRecord } from "@my-notes/shared";
 import { db, ensureDefaultFolder } from "@my-notes/local-db";
-import { createId, nextSyncAfterEdit } from "@my-notes/shared";
+import { createId } from "@my-notes/shared";
 import { stripHtml } from "@/lib/html";
 
 function titleFromContent(html: string): string {
@@ -27,7 +27,6 @@ export function useNoteCommands() {
       title: "新笔记",
       contentText: "",
       updatedAt: now,
-      syncStatus: "local_only",
     });
     return id;
   }, []);
@@ -51,7 +50,6 @@ export function useNoteCommands() {
         ...patch,
         title: nextTitle,
         updatedAt: now,
-        syncStatus: nextSyncAfterEdit(selected.syncStatus),
       });
     },
     [],

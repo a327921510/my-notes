@@ -2,6 +2,7 @@ import { Empty, Input, Space, Splitter } from "antd";
 import { useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+
 import type { NotesSearchNavigationState } from "@/types/globalSearchNavigation";
 
 import { RichTextEditor } from "@/components/RichTextEditor";

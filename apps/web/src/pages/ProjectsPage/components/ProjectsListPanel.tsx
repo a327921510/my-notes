@@ -1,6 +1,4 @@
 import {
-  CloudDownloadOutlined,
-  CloudUploadOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
@@ -8,8 +6,6 @@ import {
 } from "@ant-design/icons";
 import { Button, Input, List, Modal, Popconfirm, Space, Typography } from "antd";
 import { useMemo, useState } from "react";
-
-import { SyncBadge } from "@/components/SyncBadge";
 
 import type { ProjectVM } from "../types";
 
@@ -22,8 +18,6 @@ export type ProjectsListPanelProps = {
   onCreateProject: (payload: { name: string }) => Promise<void>;
   onDeleteProject: (projectId: string) => Promise<void>;
   onRenameProject: (projectId: string, name: string) => Promise<void>;
-  onPullFromCloud: () => Promise<void>;
-  onPushToCloud: () => Promise<void>;
 };
 
 export function ProjectsListPanel(props: ProjectsListPanelProps) {
@@ -36,8 +30,6 @@ export function ProjectsListPanel(props: ProjectsListPanelProps) {
     onCreateProject,
     onDeleteProject,
     onRenameProject,
-    onPullFromCloud,
-    onPushToCloud,
   } = props;
   const [searchInput, setSearchInput] = useState(searchKeyword);
   const [createOpen, setCreateOpen] = useState(false);
@@ -74,12 +66,10 @@ export function ProjectsListPanel(props: ProjectsListPanelProps) {
   return (
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
-        <Typography.Title level={5} style={{ margin: 0 }}>
+        <Typography.Title level={5} className="!m-0">
           项目列表
         </Typography.Title>
         <Space size={4}>
-          <Button type="text" icon={<CloudDownloadOutlined />} onClick={() => void onPullFromCloud()} />
-          <Button type="text" icon={<CloudUploadOutlined />} onClick={() => void onPushToCloud()} />
           <Button type="text" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} />
         </Space>
       </div>
@@ -105,19 +95,12 @@ export function ProjectsListPanel(props: ProjectsListPanelProps) {
             const active = project.id === selectedProjectId;
             return (
               <List.Item
-                style={{
-                  cursor: "pointer",
-                  padding: "10px 12px",
-                  background: active ? "#e6f4ff" : "transparent",
-                }}
+                className={`cursor-pointer px-3 py-2.5 ${active ? "bg-[#e6f4ff]" : ""}`}
                 onClick={() => onSelectProject(project.id)}
               >
                 <div className="flex w-full items-center justify-between gap-3">
                   <div className="min-w-0">
                     <Typography.Text strong={active}>{project.name}</Typography.Text>
-                    <div>
-                      <SyncBadge status={project.syncStatus} />
-                    </div>
                   </div>
                   <Space size={4}>
                     <Button

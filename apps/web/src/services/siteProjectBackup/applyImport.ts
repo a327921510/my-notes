@@ -67,7 +67,6 @@ export async function applySiteProjectImport(payload: SiteProjectBackupPayload):
           id,
           name,
           updatedAt: Date.now(),
-          syncStatus: "local_only",
         });
         projectIdByName.set(name, id);
         projectOnlyKeys.set(id, new Set());
@@ -91,7 +90,6 @@ export async function applySiteProjectImport(payload: SiteProjectBackupPayload):
           name: it.name,
           content: it.content,
           updatedAt: Date.now(),
-          syncStatus: "local_only",
         });
         keys.add(k);
         stats.projectItemsAdded += 1;
@@ -119,7 +117,6 @@ export async function applySiteProjectImport(payload: SiteProjectBackupPayload):
           projectId: projectIdForSite,
           updatedAt: Date.now(),
           version: 1,
-          syncStatus: "local_only",
         });
         siteIdByKey.set(sk, siteId);
         siteItemKeys.set(siteId, new Set());
@@ -142,7 +139,6 @@ export async function applySiteProjectImport(payload: SiteProjectBackupPayload):
           name: it.name,
           content: it.content,
           updatedAt: Date.now(),
-          syncStatus: "local_only",
         });
         keys.add(k);
         stats.siteItemsAdded += 1;

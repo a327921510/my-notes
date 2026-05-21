@@ -4,20 +4,12 @@ import { memo } from "react";
 
 export type UserInfoPanelProps = {
   displayName: string;
-  isLoggedIn: boolean;
-  userId: string | null;
-  onLogin: () => void;
-  onLogout: () => void;
   onExport: () => void | Promise<void>;
   onImport: () => void;
 };
 
 export const UserInfoPanel = memo(function UserInfoPanel({
   displayName,
-  isLoggedIn,
-  userId,
-  onLogin,
-  onLogout,
   onExport,
   onImport,
 }: UserInfoPanelProps) {
@@ -26,19 +18,10 @@ export const UserInfoPanel = memo(function UserInfoPanel({
       <Card title="账号信息">
         <Descriptions column={1} size="small">
           <Descriptions.Item label="名称">{displayName}</Descriptions.Item>
-          {isLoggedIn ? (
-            <Descriptions.Item label="用户 ID">{userId ?? "—"}</Descriptions.Item>
-          ) : null}
         </Descriptions>
-        <div className="mt-4">
-          {isLoggedIn ? (
-            <Button onClick={onLogout}>登出</Button>
-          ) : (
-            <Button type="primary" onClick={onLogin}>
-              登录
-            </Button>
-          )}
-        </div>
+        <Typography.Paragraph type="secondary" className="!mt-3 !mb-0">
+          数据完全保存在本地（IndexedDB）。可通过下方导出 / 导入 JSON 文件迁移数据。
+        </Typography.Paragraph>
       </Card>
 
       <Card title="站点与项目数据">

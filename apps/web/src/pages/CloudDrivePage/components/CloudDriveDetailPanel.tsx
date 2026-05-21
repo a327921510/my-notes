@@ -1,16 +1,13 @@
 import { DeleteOutlined, DownloadOutlined, EditOutlined, SaveOutlined } from "@ant-design/icons";
 import { Button, Empty, Input, Popconfirm, Space, Typography } from "antd";
 import { useMemo, useState } from "react";
-import { SyncBadge } from "@/components/SyncBadge";
+
 import type { DriveFile, DriveFolder } from "../types";
 import { CloudDriveDetailTopBar } from "./CloudDriveDetailTopBar";
 
-type CloudDriveDetailPanelProps = {
+export type CloudDriveDetailPanelProps = {
   folder: DriveFolder | null;
   files: DriveFile[];
-  syncing: boolean;
-  onPull: () => void;
-  onPush: () => void;
   onAddFile: () => void;
   onDownloadFile: (file: DriveFile) => Promise<void> | void;
   onRenameFile: (fileId: string, name: string) => Promise<void>;
@@ -20,9 +17,6 @@ type CloudDriveDetailPanelProps = {
 export function CloudDriveDetailPanel({
   folder,
   files,
-  syncing,
-  onPull,
-  onPush,
   onAddFile,
   onDownloadFile,
   onRenameFile,
@@ -50,13 +44,7 @@ export function CloudDriveDetailPanel({
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <CloudDriveDetailTopBar
-        pathLabel={pathLabel}
-        syncing={syncing}
-        onPull={onPull}
-        onPush={onPush}
-        onAddFile={onAddFile}
-      />
+      <CloudDriveDetailTopBar pathLabel={pathLabel} onAddFile={onAddFile} />
       <div className="min-h-0 flex-1 overflow-auto rounded border border-solid border-gray-200 p-3">
         {files.length === 0 ? (
           <Empty description="当前目录暂无文件" />
@@ -71,11 +59,10 @@ export function CloudDriveDetailPanel({
                       <div className="min-w-0 flex-1">
                         <Typography.Text strong>{file.name}</Typography.Text>
                         <div className="mt-1">
-                          <SyncBadge status={file.syncStatus} />
+                          <Typography.Text type="secondary">
+                            {(file.sizeBytes / 1024).toFixed(1)} KB · {file.mimeType || "unknown"}
+                          </Typography.Text>
                         </div>
-                        <Typography.Text type="secondary">
-                          {(file.sizeBytes / 1024).toFixed(1)} KB · {file.mimeType || "unknown"}
-                        </Typography.Text>
                       </div>
                       <Space>
                         <Button icon={<DownloadOutlined />} onClick={() => void onDownloadFile(file)}>
@@ -99,7 +86,11 @@ export function CloudDriveDetailPanel({
                     </div>
                   ) : (
                     <Space>
-                      <Input value={draftName} onChange={(e) => setDraftName(e.target.value)} style={{ width: 320 }} />
+                      <Input
+                        value={draftName}
+                        onChange={(e) => setDraftName(e.target.value)}
+                        className="w-80"
+                      />
                       <Button type="primary" icon={<SaveOutlined />} onClick={() => void saveEdit(file.id)}>
                         保存
                       </Button>

@@ -10,16 +10,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
       "@my-notes/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
       "@my-notes/local-db": path.resolve(__dirname, "../../packages/local-db/src/index.ts"),
-      "@my-notes/sync-client": path.resolve(__dirname, "../../packages/sync-client/src/index.ts"),
     },
   },
+  /** Web 端纯本地运行，无后端代理；Electron 桌面端直接加载构建产物。 */
   server: {
     port: 5173,
-    proxy: {
-      "/api": {
-        target: "http://127.0.0.1:3001",
-        changeOrigin: true,
-      },
-    },
   },
 });

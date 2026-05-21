@@ -46,7 +46,6 @@ async function findOrCreateSiteForProjectAddress(
     projectId,
     updatedAt: Date.now(),
     version: 1,
-    syncStatus: "local_only",
   });
   return siteId;
 }

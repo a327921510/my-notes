@@ -1,6 +1,4 @@
 import {
-  CloudDownloadOutlined,
-  CloudUploadOutlined,
   DeleteOutlined,
   FolderAddOutlined,
   FolderOpenOutlined,
@@ -8,10 +6,10 @@ import {
 } from "@ant-design/icons";
 import { Button, Input, List, Modal, Popconfirm, Space, Typography } from "antd";
 import { useMemo, useState } from "react";
-import { SyncBadge } from "@/components/SyncBadge";
+
 import type { DriveFolder } from "../types";
 
-type CloudDriveListPanelProps = {
+export type CloudDriveListPanelProps = {
   folders: DriveFolder[];
   selectedFolderId: string | null;
   searchKeyword: string;
@@ -19,8 +17,6 @@ type CloudDriveListPanelProps = {
   onSelectFolder: (folderId: string) => void;
   onCreateFolder: (name: string) => Promise<void>;
   onDeleteFolder: (folderId: string) => Promise<void>;
-  onPullFromCloud: () => Promise<void> | void;
-  onPushToCloud: () => Promise<void> | void;
 };
 
 export function CloudDriveListPanel({
@@ -31,8 +27,6 @@ export function CloudDriveListPanel({
   onSelectFolder,
   onCreateFolder,
   onDeleteFolder,
-  onPullFromCloud,
-  onPushToCloud,
 }: CloudDriveListPanelProps) {
   const [searchInput, setSearchInput] = useState(searchKeyword);
   const [createOpen, setCreateOpen] = useState(false);
@@ -55,13 +49,11 @@ export function CloudDriveListPanel({
       <div className="flex items-center justify-between">
         <Space>
           <FolderOpenOutlined />
-          <Typography.Title level={5} style={{ margin: 0 }}>
+          <Typography.Title level={5} className="!m-0">
             云盘目录
           </Typography.Title>
         </Space>
         <Space size={4}>
-          <Button type="text" icon={<CloudDownloadOutlined />} onClick={() => void onPullFromCloud()} />
-          <Button type="text" icon={<CloudUploadOutlined />} onClick={() => void onPushToCloud()} />
           <Button type="text" icon={<FolderAddOutlined />} onClick={() => setCreateOpen(true)} />
         </Space>
       </div>
@@ -87,7 +79,7 @@ export function CloudDriveListPanel({
             const active = folder.id === selectedFolderId;
             return (
               <List.Item
-                style={{ cursor: "pointer", padding: "10px 12px", background: active ? "#e6f4ff" : "transparent" }}
+                className={`cursor-pointer px-3 py-2.5 ${active ? "bg-[#e6f4ff]" : ""}`}
                 onClick={() => onSelectFolder(folder.id)}
               >
                 <div className="flex w-full items-center justify-between gap-2">
@@ -98,9 +90,6 @@ export function CloudDriveListPanel({
                         {folder.name}
                       </Typography.Text>
                     </Space>
-                    <div>
-                      <SyncBadge status={folder.syncStatus} />
-                    </div>
                   </div>
                   <Popconfirm
                     title="确认删除目录？"
@@ -135,7 +124,11 @@ export function CloudDriveListPanel({
         cancelText="取消"
         okButtonProps={{ disabled: !newFolderName.trim() }}
       >
-        <Input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="目录名称（必填）" />
+        <Input
+          value={newFolderName}
+          onChange={(e) => setNewFolderName(e.target.value)}
+          placeholder="目录名称（必填）"
+        />
       </Modal>
     </div>
   );
