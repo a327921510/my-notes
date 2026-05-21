@@ -1,9 +1,7 @@
-import { nextSyncAfterEdit } from "@my-notes/shared";
-
 import type { NotesDB } from "./database";
 
 /**
- * 站点上的 projectId 变更时，批量更新该站下条目的冗余 projectId，并标记需同步。
+ * 站点上的 projectId 变更时，批量更新该站下条目的冗余 projectId。
  */
 export async function propagateSiteProjectToItems(
   dbx: NotesDB,
@@ -18,7 +16,6 @@ export async function propagateSiteProjectToItems(
       await dbx.site_items.update(item.id, {
         projectId: nextPid,
         updatedAt: now,
-        syncStatus: nextSyncAfterEdit(item.syncStatus),
       });
     }
   });
