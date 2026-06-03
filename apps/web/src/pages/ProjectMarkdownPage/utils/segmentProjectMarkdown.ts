@@ -1,15 +1,19 @@
 import {
+  isCodeRepoTableHeader,
   isCredentialTableHeader,
-  isMarkdownTableDelimiterRow,
-  splitMarkdownTableRow,
-} from "./splitMarkdownTableRow";
+} from "./projectMarkdownTableHeaders";
+import { isMarkdownTableDelimiterRow, splitMarkdownTableRow } from "./splitMarkdownTableRow";
 
 export type ProjectMdSegment =
   | { type: "markdown"; text: string }
-  | { type: "credentialTable"; header: string[]; body: string[][] };
+  | { type: "genericTable"; header: string[]; body: string[][] }
+  | { type: "credentialTable"; header: string[]; body: string[][] }
+  | { type: "codeRepoTable"; header: string[]; body: string[][] };
+
+type SpecialTableKind = "credential" | "codeRepo";
 
 /**
- * 将全文拆成 Markdown 段与「地址/账号/密码/备注」表；非该表头的管道表原样作为 Markdown 段保留。
+ * 将全文拆成 Markdown 段与管道表：特殊表头（凭证、代码仓库）与通用 GFM 表分别输出；其余 Markdown 原样保留。
  */
 export function segmentProjectMarkdownWithCredentialTables(source: string): ProjectMdSegment[] {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
@@ -27,14 +31,24 @@ export function segmentProjectMarkdownWithCredentialTables(source: string): Proj
     const parsed = tryParsePipeTableAt(lines, i);
     if (parsed) {
       flushMd();
-      if (parsed.isCredential) {
+      if (parsed.kind === "credential") {
         segments.push({
           type: "credentialTable",
           header: parsed.header,
           body: parsed.body,
         });
+      } else if (parsed.kind === "codeRepo") {
+        segments.push({
+          type: "codeRepoTable",
+          header: parsed.header,
+          body: parsed.body,
+        });
       } else {
-        buf.push(...lines.slice(i, i + parsed.lineCount));
+        segments.push({
+          type: "genericTable",
+          header: parsed.header,
+          body: parsed.body,
+        });
       }
       i += parsed.lineCount;
       continue;
@@ -46,9 +60,18 @@ export function segmentProjectMarkdownWithCredentialTables(source: string): Proj
   return segments;
 }
 
-type ParseResult =
-  | { lineCount: number; isCredential: true; header: string[]; body: string[][] }
-  | { lineCount: number; isCredential: false };
+type ParseResult = {
+  lineCount: number;
+  kind: SpecialTableKind | null;
+  header: string[];
+  body: string[][];
+};
+
+function detectSpecialTableKind(headerCells: string[]): SpecialTableKind | null {
+  if (isCredentialTableHeader(headerCells)) return "credential";
+  if (isCodeRepoTableHeader(headerCells)) return "codeRepo";
+  return null;
+}
 
 function tryParsePipeTableAt(lines: string[], start: number): ParseResult | null {
   if (start >= lines.length) return null;
@@ -61,7 +84,7 @@ function tryParsePipeTableAt(lines: string[], start: number): ParseResult | null
   const headerCells = splitMarkdownTableRow(headerLine);
   if (headerCells.length === 0) return null;
 
-  const isCredential = isCredentialTableHeader(headerCells);
+  const kind = detectSpecialTableKind(headerCells);
   let i = start + 2;
   const body: string[][] = [];
 
@@ -75,8 +98,5 @@ function tryParsePipeTableAt(lines: string[], start: number): ParseResult | null
   }
 
   const lineCount = i - start;
-  if (isCredential) {
-    return { lineCount, isCredential: true, header: headerCells, body };
-  }
-  return { lineCount, isCredential: false };
+  return { lineCount, kind, header: headerCells, body };
 }

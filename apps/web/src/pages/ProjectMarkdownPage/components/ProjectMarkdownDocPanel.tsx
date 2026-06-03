@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 
 import "@uiw/react-md-editor/markdown-editor.css";
 
+import { ProjectMarkdownExampleModal } from "./ProjectMarkdownExampleModal";
 import { ProjectMarkdownReadView } from "./ProjectMarkdownReadView";
 
 export type ProjectDocPanelMode = "read" | "edit";
@@ -61,7 +62,7 @@ export function ProjectMarkdownDocPanel({
         {isLoading ? (
           <div className="flex h-[min(480px,50vh)] items-center justify-center text-[#bfbfbf]">加载中…</div>
         ) : mode === "read" ? (
-          <div className="h-[min(560px,calc(100vh-14rem))] overflow-auto p-4">
+          <div className="h-full overflow-auto p-4">
             <ProjectMarkdownReadView source={draft} onCopyCell={onCopyCell} />
           </div>
         ) : (
@@ -81,12 +82,10 @@ export function ProjectMarkdownDocPanel({
         )}
       </div>
       <p className="shrink-0 text-xs leading-relaxed text-[#8c8c8c]">
-        表格规则：使用 Markdown
-        管道表，且表头从左到右依次为 <code className="rounded bg-[#f5f5f5] px-1">地址</code>、
-        <code className="rounded bg-[#f5f5f5] px-1">账号</code>、
-        <code className="rounded bg-[#f5f5f5] px-1">密码</code>、
-        <code className="rounded bg-[#f5f5f5] px-1">备注</code>
-        。阅读模式下「账号」「密码」列以纯文本展示（链接仅显示文字），悬停高亮，点击复制。
+        编辑区为 Markdown 源码；阅读区渲染为 HTML。
+        <span className="ml-1">
+          <ProjectMarkdownExampleModal />
+        </span>
       </p>
     </div>
   );

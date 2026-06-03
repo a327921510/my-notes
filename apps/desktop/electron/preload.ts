@@ -1,10 +1,11 @@
-import { contextBridge } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
+
+export type OpenPathInExplorerResult =
+  | { ok: true; openedParent?: boolean }
+  | { ok: false; error: string };
 
 /**
  * 暴露最小桌面端能力到渲染进程。
- *
- * 当前为纯本地应用，先不开放文件系统 / 存储路径等 IPC；
- * 仅注入 `__MY_NOTES_DESKTOP__` 标识，便于前端在需要时区分桌面端环境。
  */
 contextBridge.exposeInMainWorld("__MY_NOTES_DESKTOP__", {
   platform: process.platform,
@@ -13,4 +14,6 @@ contextBridge.exposeInMainWorld("__MY_NOTES_DESKTOP__", {
     electron: process.versions.electron,
     node: process.versions.node,
   },
+  openPathInExplorer: (targetPath: string): Promise<OpenPathInExplorerResult> =>
+    ipcRenderer.invoke("desktop:open-path-in-explorer", targetPath),
 });

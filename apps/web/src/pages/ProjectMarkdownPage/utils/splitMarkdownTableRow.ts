@@ -18,11 +18,3 @@ export function isMarkdownTableDelimiterRow(line: string): boolean {
 export function normalizeTableHeaderCell(s: string): string {
   return s.replace(/\*\*/g, "").replace(/`/g, "").trim();
 }
-
-const CREDENTIAL_HEADER: readonly string[] = ["地址", "账号", "密码", "备注"];
-
-export function isCredentialTableHeader(cells: string[]): boolean {
-  if (cells.length < CREDENTIAL_HEADER.length) return false;
-  const n = cells.map(normalizeTableHeaderCell);
-  return CREDENTIAL_HEADER.every((h, i) => n[i] === h);
-}

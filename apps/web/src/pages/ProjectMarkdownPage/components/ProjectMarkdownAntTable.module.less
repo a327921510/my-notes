@@ -1,0 +1,31 @@
+@markdown-table-cell-max-width: 17.5rem;
+
+.wrapper {
+  margin-block: 1rem;
+
+  :global(.ant-table) {
+    font-size: 14px;
+  }
+
+  :global(.ant-table-thead > tr > th),
+  :global(.ant-table-tbody > tr > td) {
+    max-width: @markdown-table-cell-max-width;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  :global(.ant-table-thead > tr > th) {
+    background: #fafafa;
+    font-weight: 600;
+    color: #262626;
+  }
+
+  :global(.ant-table-tbody > tr > td) {
+    color: #595959;
+    vertical-align: top;
+  }
+}
+.clickableCell {
+  cursor: pointer;
+}

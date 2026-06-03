@@ -1,5 +1,31 @@
 @import "tailwindcss";
+@import "@uiw/react-markdown-preview/markdown.css";
 
 :root {
   color-scheme: light;
+}
+
+/* 项目 Markdown 阅读态：@uiw/react-markdown-preview 生成的 HTML */
+.project-md-read-view .project-md-html {
+  color: #262626;
+  font-size: 14px;
+  line-height: 1.65;
+  margin-block: 1rem;
+}
+
+.project-md-read-view .project-md-html .wmde-markdown {
+  background: transparent;
+  font-family: inherit;
+}
+
+.project-md-read-view .project-md-html .wmde-markdown a:not([href^="mynotes-path:"]) {
+  color: #1677ff;
+}
+
+.project-md-read-view .project-md-html .wmde-markdown pre {
+  border-radius: 6px;
+}
+
+.project-md-read-view .project-md-html .wmde-markdown table {
+  margin: 12px 0;
 }

@@ -6,14 +6,22 @@ import {
   app,
   BrowserWindow,
   globalShortcut,
+  ipcMain,
   Menu,
   shell,
   Tray,
   nativeImage,
 } from "electron";
 
+import { createPlaceholderTrayIcon } from "./trayPlaceholder";
+
 const IS_DEV = !app.isPackaged;
 const DEV_SERVER_URL = process.env.MY_NOTES_DEV_URL || "http://127.0.0.1:5173";
+
+if (IS_DEV) {
+  app.setName("MyNotes-Dev");
+  app.setPath("userData", path.join(app.getPath("appData"), "MyNotes-Dev"));
+}
 
 /**
  * Resolve the bundled web `index.html`.
@@ -31,6 +39,7 @@ function getWebEntryUrl(): string {
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let isQuitting = false;
 
 function getIconPath(): string | undefined {
   const candidates = [
@@ -38,6 +47,20 @@ function getIconPath(): string | undefined {
     path.join(process.resourcesPath ?? "", "icon.png"),
   ];
   return candidates.find((p) => p && fs.existsSync(p));
+}
+
+function getTrayIcon(): Electron.NativeImage {
+  const iconPath = getIconPath();
+  if (iconPath) {
+    const image = nativeImage.createFromPath(iconPath);
+    if (!image.isEmpty()) {
+      if (process.platform === "win32") {
+        return image.resize({ width: 16, height: 16 });
+      }
+      return image;
+    }
+  }
+  return createPlaceholderTrayIcon();
 }
 
 function buildAppMenu(window: BrowserWindow): Menu {
@@ -87,6 +110,7 @@ function buildAppMenu(window: BrowserWindow): Menu {
           label: "退出",
           accelerator: isMac ? "Cmd+Q" : "Ctrl+Q",
           click: () => {
+            isQuitting = true;
             app.quit();
           },
         },
@@ -128,7 +152,7 @@ function createMainWindow(): BrowserWindow {
     minWidth: 960,
     minHeight: 600,
     show: false,
-    title: "MyNotes",
+    title: IS_DEV ? "MyNotes [开发]" : "MyNotes",
     autoHideMenuBar: false,
     backgroundColor: "#f5f5f5",
     icon: icon ? nativeImage.createFromPath(icon) : undefined,
@@ -161,16 +185,31 @@ function createMainWindow(): BrowserWindow {
     }
   });
 
-  void window.loadURL(getWebEntryUrl());
+  window.on("close", (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    window.hide();
+  });
+
+  const entryUrl = getWebEntryUrl();
+  if (IS_DEV) {
+    console.info(`[MyNotes dev] 加载 ${entryUrl}`);
+  }
+  void window.loadURL(entryUrl);
+
+  if (IS_DEV) {
+    window.webContents.on("did-finish-load", () => {
+      const loaded = window.webContents.getURL();
+      window.setTitle(`MyNotes [开发] — ${loaded}`);
+    });
+  }
 
   return window;
 }
 
 function ensureTray(window: BrowserWindow): void {
   if (tray) return;
-  const icon = getIconPath();
-  const trayIcon = icon ? nativeImage.createFromPath(icon) : nativeImage.createEmpty();
-  tray = new Tray(trayIcon);
+  tray = new Tray(getTrayIcon());
   tray.setToolTip("MyNotes");
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -189,6 +228,7 @@ function ensureTray(window: BrowserWindow): void {
       {
         label: "退出",
         click: () => {
+          isQuitting = true;
           app.quit();
         },
       },
@@ -212,7 +252,52 @@ function registerGlobalShortcuts(window: BrowserWindow): void {
   });
 }
 
+const WIN_DRIVE_PATH = /^[A-Za-z]:[\\/]/;
+const WIN_UNC_PATH = /^\\\\[^\\]+\\[^\\]+/;
+
+function isAllowedWindowsPath(raw: string): boolean {
+  const p = raw.trim();
+  if (!p || p.includes("\0")) return false;
+  return WIN_DRIVE_PATH.test(p) || WIN_UNC_PATH.test(p);
+}
+
+function registerDesktopIpc(): void {
+  ipcMain.handle("desktop:open-path-in-explorer", async (_event, rawPath: unknown) => {
+    if (typeof rawPath !== "string" || !isAllowedWindowsPath(rawPath)) {
+      return { ok: false as const, error: "路径无效" };
+    }
+    const normalized = path.normalize(rawPath.trim().replace(/\//g, "\\"));
+    try {
+      if (fs.existsSync(normalized)) {
+        const stat = fs.statSync(normalized);
+        if (stat.isFile()) {
+          shell.showItemInFolder(normalized);
+          return { ok: true as const };
+        }
+        const err = await shell.openPath(normalized);
+        if (err) return { ok: false as const, error: err };
+        return { ok: true as const };
+      }
+      const parent = path.dirname(normalized);
+      if (fs.existsSync(parent)) {
+        const err = await shell.openPath(parent);
+        if (err) return { ok: false as const, error: err };
+        return { ok: true as const, openedParent: true as const };
+      }
+      return { ok: false as const, error: "路径不存在" };
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : "无法打开路径",
+      };
+    }
+  });
+}
+
 function setupSingleInstance(): boolean {
+  /** 开发态不与安装版 MyNotes 抢单实例锁，否则 dev 进程会秒退、窗口仍是旧安装包。 */
+  if (IS_DEV) return true;
+
   const gotLock = app.requestSingleInstanceLock();
   if (!gotLock) {
     app.quit();
@@ -232,6 +317,7 @@ function bootstrap(): void {
   if (!setupSingleInstance()) return;
 
   void app.whenReady().then(() => {
+    registerDesktopIpc();
     mainWindow = createMainWindow();
     ensureTray(mainWindow);
     registerGlobalShortcuts(mainWindow);
@@ -252,7 +338,14 @@ function bootstrap(): void {
   });
 
   app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") app.quit();
+    // 隐藏到托盘时窗口仍存在，不在此退出；仅显式「退出」或 macOS dock 行为才结束进程
+    if (process.platform === "darwin" && !isQuitting) return;
+    if (!isQuitting) return;
+    app.quit();
+  });
+
+  app.on("before-quit", () => {
+    isQuitting = true;
   });
 }
 

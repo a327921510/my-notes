@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:desktop": "vite build --mode desktop",
     "preview": "vite preview"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
     "@my-notes/local-db": "workspace:*",
     "@my-notes/shared": "workspace:*",
+    "@uiw/react-markdown-preview": "^5.2.0",
     "@uiw/react-md-editor": "^4.1.0",
     "antd": "^6.3.5",
     "clsx": "^2.1.1",
@@ -29,6 +31,7 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
+    "less": "^4.6.4",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
     "vite": "^7.3.2"

@@ -8,11 +8,11 @@
   "scripts": {
     "dev": "node ./scripts/dev.cjs",
     "build:main": "tsc -p tsconfig.json",
-    "build:web": "pnpm --filter @my-notes/web build",
+    "build:web": "pnpm --filter @my-notes/web build:desktop",
     "build": "pnpm run build:web && pnpm run build:main",
     "start": "electron .",
     "pack": "pnpm run build && electron-builder --dir",
-    "dist:win": "pnpm run build && electron-builder --win nsis portable --x64",
+    "dist:win": "node ./scripts/dist-win.cjs",
     "dist:linux": "pnpm run build && electron-builder --linux AppImage --x64"
   },
   "devDependencies": {
@@ -48,6 +48,9 @@
       ],
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -58,6 +61,7 @@
       "target": ["AppImage"],
       "category": "Office"
     },
-    "asar": true
+    "asar": true,
+    "npmRebuild": false
   }
 }
