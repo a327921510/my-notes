@@ -9,5 +9,13 @@ uploads
 coverage
 .vite
 
+# 已下线 apps/api 的本地残留（勿提交失效的 pnpm 链接）
+apps/api/node_modules/
+
 # SQLite database files
 apps/api/data/
+
+# apps/desktop 构建产出（Electron 主进程编译 + electron-builder 安装包）
+apps/desktop/dist/
+apps/desktop/release/
+apps/desktop/release-build-*/
