@@ -1,4 +1,5 @@
 dist/
 release/
+release-build-*/
 node_modules/
 *.log
