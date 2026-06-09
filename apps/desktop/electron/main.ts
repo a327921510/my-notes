@@ -85,6 +85,24 @@ function buildAppMenu(window: BrowserWindow): Menu {
 
   return Menu.buildFromTemplate([
     ...macHeader,
+    /**
+     * macOS 上 Cmd+C / Cmd+V / Cmd+X 等剪贴板快捷键依赖 Edit 菜单的 role 绑定；
+     * 缺少此项时，Markdown 编辑器等 textarea 内无法复制粘贴（非 Web 组件问题）。
+     */
+    {
+      label: "编辑",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        ...(isMac ? [{ role: "pasteAndMatchStyle" as const }] : []),
+        { type: "separator" },
+        { role: "selectAll" },
+      ],
+    },
     {
       label: "文件",
       submenu: [
