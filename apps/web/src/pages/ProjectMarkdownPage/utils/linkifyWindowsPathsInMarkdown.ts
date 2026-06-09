@@ -1,8 +1,17 @@
-import { isWindowsAbsolutePath, normalizeWindowsPath, toWindowsPathMarkdownHref } from "./windowsPath";
+import {
+  isMacAbsolutePath,
+  isWindowsAbsolutePath,
+  normalizeLocalPath,
+  toWindowsPathMarkdownHref,
+} from "./windowsPath";
 
 /** 行内 Windows 路径（盘符或 UNC），避免匹配已在链接/代码中的片段。 */
 const WIN_PATH_IN_LINE =
   /(?<![\[`(])(\\{2}[^\s`"<>|[\]()]+|(?:[A-Za-z]:)[\\/][^\s`"<>|[\]()]+)/g;
+
+/** 行内 macOS / Unix 绝对路径（/ 或 ~/ 开头）。 */
+const MAC_PATH_IN_LINE =
+  /(?<![\[`(:])(?:~\/[^\s`"<>|[\]()]+|\/(?:Users|Volumes|Applications|private|opt|var|tmp|Library|System)(?:\/[^\s`"<>|[\]()]+)*)/g;
 
 function trimTrailingPathPunctuation(segment: string): { core: string; suffix: string } {
   const trailing = /[),.，。；;:!?]+$/;
@@ -13,10 +22,17 @@ function trimTrailingPathPunctuation(segment: string): { core: string; suffix: s
 }
 
 function linkifyPlainSegment(segment: string): string {
-  return segment.replace(WIN_PATH_IN_LINE, (raw) => {
+  const withWin = segment.replace(WIN_PATH_IN_LINE, (raw) => {
     const { core, suffix } = trimTrailingPathPunctuation(raw);
     if (!isWindowsAbsolutePath(core)) return raw;
-    const path = normalizeWindowsPath(core);
+    const path = normalizeLocalPath(core);
+    return `[${core}](${toWindowsPathMarkdownHref(path)})${suffix}`;
+  });
+
+  return withWin.replace(MAC_PATH_IN_LINE, (raw) => {
+    const { core, suffix } = trimTrailingPathPunctuation(raw);
+    if (!isMacAbsolutePath(core)) return raw;
+    const path = normalizeLocalPath(core);
     return `[${core}](${toWindowsPathMarkdownHref(path)})${suffix}`;
   });
 }
@@ -29,8 +45,8 @@ function linkifyLine(line: string): string {
 }
 
 /**
- * 将 Markdown 正文中的裸 Windows 路径转为 `mynotes-path:` 链接，便于阅读态点击打开。
- * 跳过围栏代码块；不处理管道表行（表内路径由表格单元格组件处理）。
+ * 将 Markdown 正文中的裸本地路径转为 `mynotes-path:` 链接，便于阅读态点击打开。
+ * 支持 Windows 盘符/UNC 与 macOS `/`、`~/` 路径；跳过围栏代码块；不处理管道表行。
  */
 export function linkifyWindowsPathsInMarkdown(source: string): string {
   const lines = source.replace(/\r\n/g, "\n").split("\n");

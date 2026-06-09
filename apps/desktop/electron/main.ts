@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -254,6 +255,14 @@ function registerGlobalShortcuts(window: BrowserWindow): void {
 
 const WIN_DRIVE_PATH = /^[A-Za-z]:[\\/]/;
 const WIN_UNC_PATH = /^\\\\[^\\]+\\[^\\]+/;
+const MAC_ABSOLUTE_PATH = /^(?:~(?:\/|$)|\/)/;
+
+function expandHome(raw: string): string {
+  if (raw.startsWith("~/") || raw === "~") {
+    return path.join(os.homedir(), raw.slice(1));
+  }
+  return raw;
+}
 
 function isAllowedWindowsPath(raw: string): boolean {
   const p = raw.trim();
@@ -261,30 +270,58 @@ function isAllowedWindowsPath(raw: string): boolean {
   return WIN_DRIVE_PATH.test(p) || WIN_UNC_PATH.test(p);
 }
 
+function isAllowedMacPath(raw: string): boolean {
+  const p = raw.trim();
+  if (!p || p.includes("\0")) return false;
+  return MAC_ABSOLUTE_PATH.test(p);
+}
+
+function isAllowedLocalPath(raw: string): boolean {
+  if (process.platform === "win32") return isAllowedWindowsPath(raw);
+  if (process.platform === "darwin") return isAllowedMacPath(raw);
+  return isAllowedMacPath(raw);
+}
+
+function normalizeLocalPath(raw: string): string {
+  const trimmed = raw.trim();
+  const expanded = expandHome(trimmed);
+  if (process.platform === "win32") {
+    return path.normalize(expanded.replace(/\//g, "\\"));
+  }
+  return path.normalize(expanded.replace(/\\/g, "/"));
+}
+
+async function openLocalPath(rawPath: string): Promise<
+  | { ok: true; openedParent?: true }
+  | { ok: false; error: string }
+> {
+  const normalized = normalizeLocalPath(rawPath);
+  if (fs.existsSync(normalized)) {
+    const stat = fs.statSync(normalized);
+    if (stat.isFile()) {
+      shell.showItemInFolder(normalized);
+      return { ok: true };
+    }
+    const err = await shell.openPath(normalized);
+    if (err) return { ok: false, error: err };
+    return { ok: true };
+  }
+  const parent = path.dirname(normalized);
+  if (fs.existsSync(parent)) {
+    const err = await shell.openPath(parent);
+    if (err) return { ok: false, error: err };
+    return { ok: true, openedParent: true };
+  }
+  return { ok: false, error: "路径不存在" };
+}
+
 function registerDesktopIpc(): void {
   ipcMain.handle("desktop:open-path-in-explorer", async (_event, rawPath: unknown) => {
-    if (typeof rawPath !== "string" || !isAllowedWindowsPath(rawPath)) {
+    if (typeof rawPath !== "string" || !isAllowedLocalPath(rawPath)) {
       return { ok: false as const, error: "路径无效" };
     }
-    const normalized = path.normalize(rawPath.trim().replace(/\//g, "\\"));
     try {
-      if (fs.existsSync(normalized)) {
-        const stat = fs.statSync(normalized);
-        if (stat.isFile()) {
-          shell.showItemInFolder(normalized);
-          return { ok: true as const };
-        }
-        const err = await shell.openPath(normalized);
-        if (err) return { ok: false as const, error: err };
-        return { ok: true as const };
-      }
-      const parent = path.dirname(normalized);
-      if (fs.existsSync(parent)) {
-        const err = await shell.openPath(parent);
-        if (err) return { ok: false as const, error: err };
-        return { ok: true as const, openedParent: true as const };
-      }
-      return { ok: false as const, error: "路径不存在" };
+      return await openLocalPath(rawPath);
     } catch (e) {
       return {
         ok: false as const,

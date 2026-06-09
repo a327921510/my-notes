@@ -11,6 +11,8 @@
     "dev:desktop": "npm run dev -w @my-notes/desktop",
     "build": "npm run build -w @my-notes/web",
     "build:desktop": "npm run build -w @my-notes/web && npm run build -w @my-notes/desktop",
+    "dist:desktop:win": "npm run dist:win -w @my-notes/desktop",
+    "dist:desktop:mac": "npm run dist:mac -w @my-notes/desktop",
     "lint": "npm run lint -w @my-notes/web --if-present"
   },
   "engines": {

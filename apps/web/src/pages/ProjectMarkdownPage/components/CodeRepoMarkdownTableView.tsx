@@ -4,7 +4,7 @@ import { markdownCellToPlain } from "../utils/markdownCellToPlain";
 import { parseMarkdownCellLink } from "../utils/parseMarkdownCellLink";
 import { CODE_REPO_TABLE_HEADERS } from "../utils/projectMarkdownTableHeaders";
 import { normalizeTableHeaderCell } from "../utils/splitMarkdownTableRow";
-import { isWindowsAbsolutePath, normalizeWindowsPath } from "../utils/windowsPath";
+import { isLocalAbsolutePath, normalizeLocalPath } from "../utils/windowsPath";
 
 import { MarkdownTableLinkCell } from "./MarkdownTableLinkCell";
 import { MarkdownTablePlainCell } from "./MarkdownTablePlainCell";
@@ -31,8 +31,8 @@ function resolveColumnKind(header: string[], colIndex: number): CodeRepoColumnKi
 function resolvePathFromCell(raw: string): string | null {
   const link = parseMarkdownCellLink(raw);
   const candidate = link?.href ?? markdownCellToPlain(raw);
-  if (!candidate || !isWindowsAbsolutePath(candidate)) return null;
-  return normalizeWindowsPath(candidate);
+  if (!candidate || !isLocalAbsolutePath(candidate)) return null;
+  return normalizeLocalPath(candidate);
 }
 
 type CodeRepoTableCellProps = {
