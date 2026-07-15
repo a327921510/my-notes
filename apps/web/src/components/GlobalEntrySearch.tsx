@@ -22,12 +22,6 @@ function isEditableDocumentTarget(target: EventTarget | null): boolean {
   return false;
 }
 
-function hitSecondaryLabel(hit: GlobalSearchHit): string {
-  if (hit.kind === "note") return "笔记区";
-  if (hit.kind === "siteItem") return `站点信息区 · ${hit.siteName}`;
-  return `项目信息区 · ${hit.projectName}`;
-}
-
 export function GlobalEntrySearch() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -59,17 +53,7 @@ export function GlobalEntrySearch() {
   const handleSelectHit = useCallback(
     (hit: GlobalSearchHit) => {
       closeModal();
-      if (hit.kind === "note") {
-        navigate("/notes", { state: { focusNoteId: hit.id } });
-        return;
-      }
-      if (hit.kind === "siteItem") {
-        navigate("/sites", { state: { focusSiteId: hit.siteId, focusItemId: hit.itemId } });
-        return;
-      }
-      navigate("/projects", {
-        state: { focusProjectId: hit.projectId, focusItemId: hit.itemId },
-      });
+      navigate("/files", { state: { focusFileId: hit.id } });
     },
     [closeModal, navigate],
   );
@@ -84,8 +68,8 @@ export function GlobalEntrySearch() {
     () =>
       hits.map((h) => ({
         hit: h,
-        primary: h.kind === "note" ? h.title : h.name,
-        secondary: hitSecondaryLabel(h),
+        primary: h.name,
+        secondary: h.path,
       })),
     [hits],
   );
@@ -106,7 +90,7 @@ export function GlobalEntrySearch() {
         }}
       />
       <Modal
-        title="搜索条目"
+        title="搜索文件"
         open={open}
         onCancel={closeModal}
         footer={null}
@@ -124,7 +108,9 @@ export function GlobalEntrySearch() {
             onChange={(e) => setQuery(e.target.value)}
           />
           {!query.trim() ? (
-            <Typography.Text type="secondary">输入关键词，在笔记与站点/项目条目中匹配名称与正文</Typography.Text>
+            <Typography.Text type="secondary">
+              输入关键词，在文件管理的路径、文件名与正文中匹配
+            </Typography.Text>
           ) : hits.length === 0 ? (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="无匹配结果" />
           ) : (
@@ -145,7 +131,7 @@ export function GlobalEntrySearch() {
                     }
                     description={
                       <div className="flex flex-col gap-1">
-                        <Typography.Text type="secondary" className="text-xs">
+                        <Typography.Text type="secondary" className="text-xs font-mono">
                           {secondary}
                         </Typography.Text>
                         <Typography.Text type="secondary" ellipsis className="text-xs">

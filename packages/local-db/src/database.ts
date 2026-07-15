@@ -60,6 +60,29 @@ export type DriveFileRow = {
   updatedAt: number;
 };
 
+/** 文件管理：文件夹节点；parentId 为 null 表示根级 */
+export type FsFolderRow = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+/** 由扩展名推导；创建时强制 .md / .rm 后缀 */
+export type FsFileKind = "md" | "rm";
+
+/** 文件管理：文本文件；folderId 为 null 表示根级 */
+export type FsFileRow = {
+  id: string;
+  folderId: string | null;
+  name: string;
+  kind: FsFileKind;
+  contentText: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export class NotesDB extends Dexie {
   folders!: EntityTable<FolderRecord, "id">;
   notes!: EntityTable<NoteRecord, "id">;
@@ -73,6 +96,8 @@ export class NotesDB extends Dexie {
   site_items!: EntityTable<SiteItemRow, "id">;
   drive_folders!: EntityTable<DriveFolderRow, "id">;
   drive_files!: EntityTable<DriveFileRow, "id">;
+  fs_folders!: EntityTable<FsFolderRow, "id">;
+  fs_files!: EntityTable<FsFileRow, "id">;
 
   constructor() {
     super(NOTES_DB_NAME);
@@ -89,6 +114,11 @@ export class NotesDB extends Dexie {
       site_items: "id, siteId, projectId, updatedAt",
       drive_folders: "id, parentId, name, createdAt, updatedAt",
       drive_files: "id, folderId, name, createdAt, updatedAt",
+    });
+    // 文件管理主线：与冻结的 drive_* / notes 隔离
+    this.version(2).stores({
+      fs_folders: "id, parentId, name, createdAt, updatedAt",
+      fs_files: "id, folderId, name, kind, createdAt, updatedAt",
     });
   }
 }

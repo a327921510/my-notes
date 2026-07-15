@@ -1,15 +1,5 @@
-/** `navigate(..., { state })` payloads used by全局条目搜索跳转 */
+/** `navigate(..., { state })`：全局搜索跳转到文件管理 */
 
-export type NotesSearchNavigationState = {
-  focusNoteId?: string;
-};
-
-export type SitesSearchNavigationState = {
-  focusSiteId?: string;
-  focusItemId?: string;
-};
-
-export type ProjectsSearchNavigationState = {
-  focusProjectId?: string;
-  focusItemId?: string;
+export type FilesSearchNavigationState = {
+  focusFileId?: string;
 };

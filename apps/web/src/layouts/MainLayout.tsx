@@ -1,11 +1,4 @@
-import {
-  AppstoreOutlined,
-  FileTextOutlined,
-  FolderOpenOutlined,
-  GlobalOutlined,
-  SnippetsOutlined,
-  UserOutlined,
-} from "@ant-design/icons";
+import { HddOutlined, UserOutlined } from "@ant-design/icons";
 import { Layout, Menu, Space, Typography } from "antd";
 import type { MenuProps } from "antd";
 import { Suspense, useMemo } from "react";
@@ -16,11 +9,7 @@ import { GlobalEntrySearch } from "@/components/GlobalEntrySearch";
 const { Content } = Layout;
 
 const NAV_ITEMS = [
-  { key: "/", label: "笔记区", icon: <FileTextOutlined /> },
-  { key: "/sites", label: "站点信息区", icon: <GlobalOutlined /> },
-  { key: "/project-markdown", label: "项目文档", icon: <SnippetsOutlined /> },
-  { key: "/projects", label: "项目信息区", icon: <AppstoreOutlined /> },
-  { key: "/cloud-drive", label: "云盘", icon: <FolderOpenOutlined /> },
+  { key: "/files", label: "文件管理", icon: <HddOutlined /> },
 ] as const;
 
 const LOGO_AREA_CLASS = "min-w-52";
@@ -28,11 +17,12 @@ const LOGO_AREA_CLASS = "min-w-52";
 function pathToMenuKey(pathname: string): string | null {
   const normalized =
     pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
-  if (normalized === "/user") return null;
-  const match = NAV_ITEMS.find(
-    (item) => item.key !== "/" && pathname.startsWith(item.key),
+  if (normalized === "/user" || normalized.startsWith("/user/")) return null;
+  const sorted = [...NAV_ITEMS].sort((a, b) => b.key.length - a.key.length);
+  const match = sorted.find(
+    (item) => normalized === item.key || normalized.startsWith(`${item.key}/`),
   );
-  return match?.key ?? "/";
+  return match?.key ?? null;
 }
 
 export function MainLayout() {

@@ -1,20 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo } from "react";
 
-import {
-  formatSiteItemDisplayName,
-  PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME,
-  SITE_MARKDOWN_DOCUMENT_ITEM_NAME,
-} from "@my-notes/shared";
-
 import { db } from "@my-notes/local-db";
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function makeSnippet(text: string, keyword: string, maxLen = 120): string {
   const lower = text.toLowerCase();
@@ -30,29 +17,13 @@ function makeSnippet(text: string, keyword: string, maxLen = 120): string {
   return `${prefix}${text.slice(start, end)}${suffix}`;
 }
 
-export type GlobalSearchHit =
-  | {
-      kind: "note";
-      id: string;
-      title: string;
-      snippet: string;
-    }
-  | {
-      kind: "siteItem";
-      itemId: string;
-      siteId: string;
-      siteName: string;
-      name: string;
-      snippet: string;
-    }
-  | {
-      kind: "projectItem";
-      itemId: string;
-      projectId: string;
-      projectName: string;
-      name: string;
-      snippet: string;
-    };
+export type GlobalSearchHit = {
+  kind: "fsFile";
+  id: string;
+  path: string;
+  name: string;
+  snippet: string;
+};
 
 function matches(keyword: string, ...parts: string[]): boolean {
   const q = keyword.toLowerCase();
@@ -60,71 +31,50 @@ function matches(keyword: string, ...parts: string[]): boolean {
 }
 
 export function useGlobalEntrySearch(keyword: string) {
-  const noteRows =
-    useLiveQuery(() => db.notes.filter((n) => !n.deletedAt).toArray(), []) ?? [];
-  const itemRows = useLiveQuery(() => db.site_items.toArray(), []) ?? [];
-  const siteRows = useLiveQuery(() => db.sites.toArray(), []) ?? [];
-  const projectRows = useLiveQuery(() => db.projects.toArray(), []) ?? [];
+  // 订阅 fs 表变化；路径拼接在 memo 内与 live 数据对齐
+  const fileRows = useLiveQuery(() => db.fs_files.toArray(), []) ?? [];
+  const folderRows = useLiveQuery(() => db.fs_folders.toArray(), []) ?? [];
 
   const hits = useMemo(() => {
     const q = keyword.trim();
     if (!q) return [];
 
-    const siteMap = new Map(siteRows.map((s) => [s.id, s]));
-    const projectMap = new Map(projectRows.map((p) => [p.id, p]));
-    const out: GlobalSearchHit[] = [];
+    // 轻量就地建 path（避免每次搜索都 await）
+    const folderPathById = new Map<string, string>();
+    const byId = new Map(folderRows.map((f) => [f.id, f]));
+    const resolve = (id: string, stack: Set<string>): string => {
+      const cached = folderPathById.get(id);
+      if (cached) return cached;
+      if (stack.has(id)) return "/";
+      stack.add(id);
+      const row = byId.get(id);
+      if (!row) return "/";
+      const parent =
+        row.parentId == null ? "/" : resolve(row.parentId, stack);
+      const path = parent === "/" ? `/${row.name}` : `${parent}/${row.name}`;
+      folderPathById.set(id, path);
+      stack.delete(id);
+      return path;
+    };
+    for (const f of folderRows) resolve(f.id, new Set());
 
-    for (const n of noteRows) {
-      const plain = stripHtml(n.contentText ?? "");
-      const title = n.title || "";
-      if (!matches(q, title, plain)) continue;
+    const out: GlobalSearchHit[] = [];
+    for (const f of fileRows) {
+      const parentPath =
+        f.folderId == null ? "/" : (folderPathById.get(f.folderId) ?? "/");
+      const path = parentPath === "/" ? `/${f.name}` : `${parentPath}/${f.name}`;
+      if (!matches(q, f.name, path, f.contentText ?? "")) continue;
       out.push({
-        kind: "note",
-        id: n.id,
-        title: title.trim() || "无标题",
-        snippet: makeSnippet(plain, q),
+        kind: "fsFile",
+        id: f.id,
+        path,
+        name: f.name,
+        snippet: makeSnippet(f.contentText || f.name, q),
       });
     }
 
-    for (const it of itemRows) {
-      if (it.name === SITE_MARKDOWN_DOCUMENT_ITEM_NAME || it.name === PROJECT_MARKDOWN_DOCUMENT_ITEM_NAME) {
-        continue;
-      }
-      const plain = stripHtml(it.content ?? "");
-      const rawName = it.name || "";
-      const displayName = formatSiteItemDisplayName(rawName);
-      if (!matches(q, rawName, plain, displayName)) continue;
-      const snippet = makeSnippet(plain, q);
-
-      if (it.siteId) {
-        const site = siteMap.get(it.siteId);
-        out.push({
-          kind: "siteItem",
-          itemId: it.id,
-          siteId: it.siteId,
-          siteName: site?.name?.trim() || "未命名站点",
-          name: displayName.trim() || "未命名条目",
-          snippet,
-        });
-      } else if (it.projectId) {
-        const proj = projectMap.get(it.projectId);
-        out.push({
-          kind: "projectItem",
-          itemId: it.id,
-          projectId: it.projectId,
-          projectName: proj?.name?.trim() || "未命名项目",
-          name: displayName.trim() || "未命名条目",
-          snippet,
-        });
-      }
-    }
-
-    return out.sort((a, b) => {
-      const titleA = a.kind === "note" ? a.title : a.name;
-      const titleB = b.kind === "note" ? b.title : b.name;
-      return titleA.localeCompare(titleB, "zh-Hans");
-    });
-  }, [itemRows, keyword, noteRows, projectRows, siteRows]);
+    return out.sort((a, b) => a.path.localeCompare(b.path, "zh-Hans"));
+  }, [fileRows, folderRows, keyword]);
 
   return { hits };
 }
