@@ -5,3 +5,5 @@ export * from "./sync-common";
 export * from "./sync-pull-pure";
 export * from "./sync-site-pure";
 export * from "./sync-drive-pure";
+export * from "./text-diff";
+export * from "./drive-diff";
