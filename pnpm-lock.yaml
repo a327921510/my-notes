@@ -108,7 +108,11 @@ importers:
         specifier: ^4.0.10
         version: 4.4.2
 
-  packages/shared: {}
+  packages/shared:
+    dependencies:
+      diff:
+        specifier: file:vendor/diff
+        version: file:packages/shared/vendor/diff
 
 packages:
 
@@ -1532,6 +1536,10 @@ packages:
 
   dexie@4.4.2:
     resolution: {integrity: sha512-zMtV8q79EFE5U8FKZvt0Y/77PCU/Hr/RDxv1EDeo228L+m/HTbeN2AjoQm674rhQCX8n3ljK87lajt7UQuZfvw==}
+
+  diff@file:packages/shared/vendor/diff:
+    resolution: {directory: packages/shared/vendor/diff, type: directory}
+    engines: {node: '>=0.3.1'}
 
   dir-compare@4.2.0:
     resolution: {integrity: sha512-2xMCmOoMrdQIPHdsTawECdNPwlVFB9zGcz3kuhmBO6U3oU+UQjsue0i8ayLKpgBcm+hcXPMVSGUN9d+pvJ6+VQ==}
@@ -4728,6 +4736,8 @@ snapshots:
       react: 19.2.5
 
   dexie@4.4.2: {}
+
+  diff@file:packages/shared/vendor/diff: {}
 
   dir-compare@4.2.0:
     dependencies:

@@ -1,4 +1,4 @@
-import { HddOutlined, UserOutlined } from "@ant-design/icons";
+import { DiffOutlined, HddOutlined, UserOutlined } from "@ant-design/icons";
 import { Layout, Menu, Space, Typography } from "antd";
 import type { MenuProps } from "antd";
 import { Suspense, useMemo } from "react";
@@ -10,6 +10,7 @@ const { Content } = Layout;
 
 const NAV_ITEMS = [
   { key: "/files", label: "文件管理", icon: <HddOutlined /> },
+  { key: "/diff-lab", label: "差异测试", icon: <DiffOutlined /> },
 ] as const;
 
 const LOGO_AREA_CLASS = "min-w-52";

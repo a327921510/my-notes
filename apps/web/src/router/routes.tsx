@@ -4,6 +4,7 @@ import type { RouteObject } from "react-router-dom";
 
 const MainLayout = lazy(() => import("@/layouts/MainLayout"));
 const FileManagerPage = lazy(() => import("@/pages/FileManagerPage"));
+const DiffLabPage = lazy(() => import("@/pages/DiffLabPage"));
 const UserInfoPage = lazy(() => import("@/pages/UserInfoPage"));
 const FsImportConfirmPage = lazy(() => import("@/pages/FsImportConfirmPage"));
 
@@ -14,6 +15,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Navigate to="/files" replace /> },
       { path: "files", element: <FileManagerPage /> },
+      { path: "diff-lab", element: <DiffLabPage /> },
       { path: "user", element: <UserInfoPage /> },
       { path: "user/import-confirm", element: <FsImportConfirmPage /> },
     ],
