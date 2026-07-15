@@ -18,8 +18,10 @@
 - **凡形成或变更的需求**，最终应**汇总进 `docs/`**；代理在对话中达成结论后，应推动或补全对应文档。
 - 梳理需求时：识别是否**明确要求**工程版本升级；若无明确要求但存在**契约/格式/兼容性**等实质变化，应**提示是否建议**升级 `package.json` 中的版本并更新 `docs/version-manifest.json`。
 - Web 页面分层（入口 / 区域组件 / Hook / 纯展示）；执行细则见 `.cursor/rules/page-layering.rule.mdc` 与 `docs/开发文档.md` 第 3.2 节。
-- **本地 IndexedDB**：`@my-notes/local-db` 导出 `NOTES_DB_NAME`（当前为 `my_notes_v2`），Dexie 仅声明 `version(1)`；Web 与桌面端各 origin 各一份库，与 PRD/开发文档 §6 一致。
-- 自 0.5 起**已下线**：远端账户、登录注册、上传 / 拉取 / 冲突合并、浏览器扩展。请勿基于历史 sync 语义实现新需求；如需跨设备迁移，统一走「文件导出 / 导入」。
+- **本地 IndexedDB**：`@my-notes/local-db` 导出 `NOTES_DB_NAME`（当前为 `my_notes_v2`），Dexie `version(1)` 旧表 + `version(2)` 增加 `fs_folders` / `fs_files`；Web 与桌面端各 origin 各一份库，与 PRD/开发文档一致。
+- 自 0.5 起**已下线**：远端账户、登录注册、上传 / 拉取 / 冲突合并、浏览器扩展。请勿基于历史 sync 语义实现新需求；跨设备迁移走「文件管理 JSON 导出 / 导入」（formatVersion 2）。
+- 自 0.6 起**产品主线为文件管理**（`/files`，`.md` / `.rm`）。
+- 自 0.7 起：**已删除**笔记区 / 站点信息区 / 项目文档 / 项目信息区 / 云盘页面代码与路由；导入冲突在用户信息页裁决；勿再脚手架这些旧页。
 
 ## Cursor Rules / Skills 适用范围
 
