@@ -22,10 +22,10 @@ export const CloudDriveDetailTopBar = memo(function CloudDriveDetailTopBar({
       <Typography.Text strong>当前路径：{pathLabel}</Typography.Text>
       <Space>
         <Button icon={<CloudDownloadOutlined />} disabled={syncing} onClick={onPull}>
-          从云端同步到本地
+          下行对比
         </Button>
         <Button icon={<CloudUploadOutlined />} disabled={syncing} onClick={onPush}>
-          同步到云端
+          上行对比
         </Button>
         <Button type="primary" icon={<PlusOutlined />} onClick={onAddFile}>
           新增文件

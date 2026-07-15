@@ -1,26 +1,25 @@
 import { db } from "@my-notes/local-db";
 import { createId } from "@my-notes/shared";
+import type { CloudDriveFilePayload, CloudDriveFolderPayload } from "@my-notes/shared";
 
-type CloudFolderPayload = {
-  cloudId: string;
-  clientFolderId: string;
-  name: string;
-  parentId: string | null;
-  path?: string;
-  updatedAt: number;
+type CloudFilePayload = CloudDriveFilePayload;
+
+export type RemoteDriveManifest = {
+  folders: CloudDriveFolderPayload[];
+  files: CloudDriveFilePayload[];
 };
 
-type CloudFilePayload = {
-  cloudId: string;
-  clientFileId: string;
-  clientFolderId: string;
-  name: string;
-  mimeType?: string;
-  sizeBytes: number;
-  checksum?: string;
-  storageId: string;
-  updatedAt: number;
-};
+/** Fetch the full remote drive manifest (folders + files metadata). */
+export async function fetchRemoteDriveManifest(token: string): Promise<RemoteDriveManifest> {
+  const [folderRes, fileRes] = await Promise.all([
+    fetch("/api/drive/folders", { headers: { Authorization: `Bearer ${token}` } }),
+    fetch("/api/drive/files", { headers: { Authorization: `Bearer ${token}` } }),
+  ]);
+  if (!folderRes.ok || !fileRes.ok) throw new Error("拉取云盘清单失败");
+  const { items: folders } = (await folderRes.json()) as { items: CloudDriveFolderPayload[] };
+  const { items: files } = (await fileRes.json()) as { items: CloudDriveFilePayload[] };
+  return { folders, files };
+}
 
 async function downloadCloudFileBlob(token: string, cloudFileId: string): Promise<Blob> {
   const res = await fetch(`/api/drive/files/${encodeURIComponent(cloudFileId)}/download`, {
@@ -31,6 +30,12 @@ async function downloadCloudFileBlob(token: string, cloudFileId: string): Promis
     throw new Error((err as { message?: string }).message ?? "下载云端文件失败");
   }
   return res.blob();
+}
+
+/** Download a cloud file and decode it as UTF-8 text (for the diff viewer). */
+export async function fetchCloudFileText(token: string, cloudFileId: string): Promise<string> {
+  const blob = await downloadCloudFileBlob(token, cloudFileId);
+  return blob.text();
 }
 
 export async function pushDriveToCloud(
@@ -147,13 +152,7 @@ export async function pullDriveFromCloud(token: string): Promise<{
   downgradedFolders: number;
   downgradedFiles: number;
 }> {
-  const [folderRes, fileRes] = await Promise.all([
-    fetch("/api/drive/folders", { headers: { Authorization: `Bearer ${token}` } }),
-    fetch("/api/drive/files", { headers: { Authorization: `Bearer ${token}` } }),
-  ]);
-  if (!folderRes.ok || !fileRes.ok) throw new Error("拉取云盘数据失败");
-  const { items: cloudFolders } = (await folderRes.json()) as { items: CloudFolderPayload[] };
-  const { items: cloudFiles } = (await fileRes.json()) as { items: CloudFilePayload[] };
+  const { folders: cloudFolders, files: cloudFiles } = await fetchRemoteDriveManifest(token);
   const cloudFolderIdSet = new Set(cloudFolders.map((x) => x.clientFolderId));
   const cloudFileIdSet = new Set(cloudFiles.map((x) => x.clientFileId));
   let downgradedFolders = 0;
