@@ -11,3 +11,6 @@ coverage
 
 # SQLite database files
 apps/api/data/
+
+# Electron packaging leftovers (no source in this repo)
+apps/desktop/

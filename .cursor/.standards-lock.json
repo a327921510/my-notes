@@ -1,0 +1,32 @@
+{
+  "source": "git@github.com:a327921510/cursor-standards.git",
+  "version": "0.2.0-test.5",
+  "commit": "b167dd09a25e4ced38279744549474cd6ad54b00",
+  "installedAt": "2026-09-03T02:34:35Z",
+  "installMode": "copy",
+  "cliVersion": "0.1.0",
+  "dirty": false,
+  "manifest": {
+    "rules/standards/README.md": "sha256:6f223eee2db8dddeb78ebaea8b23f265ea80ac9c675a40e14b94600e8b9443ec",
+    "rules/standards/std-comments.mdc": "sha256:27043aa80852a7f71ce5af47371c2c501700ae31c95e7cc8853a4dbf22411221",
+    "rules/standards/std-general.mdc": "sha256:74fcfe4ac45e026315f50717d80e3affd6927ea5b88d28ae32b4eb080f1eec32",
+    "rules/standards/std-git-workflow.mdc": "sha256:0e37e29625b944ece925825646549176f10b92aadcca0ed5b8d9f439d47bab4a",
+    "rules/standards/std-python.mdc": "sha256:ccbc20b88e51f11481f1bf456723449617ce40b5c44b06bd27c4daa269d6c51f",
+    "rules/standards/std-readability.mdc": "sha256:249c2702d349c7075c72faecdaa5d737b9a6f094b11649364fe758f1cc21eac5",
+    "rules/standards/std-req-workflow.mdc": "sha256:47062128da22ea3f3d3b95767f81262fc57e978ecfc516e55c130990c629d521",
+    "rules/standards/std-typescript.mdc": "sha256:3928955d95448ebe104b2a5ec1984d3d5d3f9e22084e16891585cd6c59883090",
+    "skills/standards/README.md": "sha256:6f223eee2db8dddeb78ebaea8b23f265ea80ac9c675a40e14b94600e8b9443ec",
+    "skills/standards/add-e2e-test/SKILL.md": "sha256:0a824d1a7b0d91f673587e2ccb0d4f3d80fe7c1bbcfa13c9e93d85ddcb15229d",
+    "skills/standards/commit-helper/SKILL.md": "sha256:4ae26c4ce3f0e55ecc7032c73516e54d1d29165ca9a289254bdbf1947eed3741",
+    "skills/standards/implement-req/SKILL.md": "sha256:1ed2519de2ab39c12bda9903227e91c29bca67e5a4502474da0c2a1ff43d28f2",
+    "skills/standards/pr-workflow/SKILL.md": "sha256:52ab7bcaca376b004decaa1ff1b71b4e5c886f5590e5fe6c08fb3d08e05a7168",
+    "skills/standards/req-register/SKILL.md": "sha256:a2f0f4b8c6331c3a52909ca62cdc87dbaf5084f0a7c094a2ec1f434bd5b163e2",
+    "skills/standards/req-workflow/SKILL.md": "sha256:3cca0e044dda7ed0a704a416ca8585e6aff28b7fa6e02f1bd13d59d9c7a0f84c",
+    "skills/standards/req-workflow/WORKFLOW.md": "sha256:284446df277a26f893b6dcd846ff40d69e2f7a544c9922a40169d2e530a2da6a",
+    "skills/standards/req-workflow/assets/REQ-index.stub.md": "sha256:cef2b32ff6f6c3feaada3a8f274791103c02401b049aed84fde2f3ac071c69d1",
+    "skills/standards/req-workflow/assets/_template.md": "sha256:0098eae223ff12094ee96d9d6c9b869f10b0798d412462fc555e1bf853f9b2ac",
+    "skills/standards/req-workflow/assets/backlog-README.md": "sha256:331e90af69cc3b6e5e8f0fa4871b611edbf0ea86d1e835cd8e1af5733c579dab",
+    "skills/standards/req-workflow/assets/changelog.stub.md": "sha256:b917e2269a332e01d776a2db00ba4c4d6aa28136810fa8722b6c7c890134fef9",
+    "skills/standards/sync-req-docs/SKILL.md": "sha256:7647a8abb3f9e7a5b683543becae8d98db125a8232dead6b781e271ba05a6529"
+  }
+}
