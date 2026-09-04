@@ -1,34 +1,29 @@
 import { App, FloatButton, Splitter } from "antd";
+import { CloudSyncOutlined } from "@ant-design/icons";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuthStore } from "@/stores/useAuthStore";
 import { db } from "@my-notes/local-db";
+import { SyncDirection } from "@my-notes/shared";
 
 import { CloudDriveDetailPanel } from "./components/CloudDriveDetailPanel";
 import { CloudDriveListPanel } from "./components/CloudDriveListPanel";
-import { SyncPanel } from "./components/SyncPanel";
+import { SyncCompareDrawer } from "./components/SyncCompareDrawer";
 import { useCloudDriveMutations } from "./hooks/useCloudDriveMutations";
 import { useCloudDrivePageData } from "./hooks/useCloudDrivePageData";
-import { useCloudDriveSyncActions } from "./hooks/useCloudDriveSyncActions";
-import type { ConflictRecord } from "./types";
-
-type SyncTaskState = {
-  running: boolean;
-  type: "push" | "pull" | null;
-};
+import { useDriveArchive } from "./hooks/useDriveArchive";
+import { useDriveSyncCompare } from "./hooks/useDriveSyncCompare";
 
 export function CloudDrivePage() {
   const { message } = App.useApp();
   const token = useAuthStore((s) => s.token);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [syncPanelOpen, setSyncPanelOpen] = useState(false);
-  const [conflicts, setConflicts] = useState<ConflictRecord[]>([]);
-  const [syncTaskState, setSyncTaskState] = useState<SyncTaskState>({ running: false, type: null });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { createFolder, removeFolder, addFile, renameFile, removeFile } = useCloudDriveMutations();
-  const { pushToCloud, pullFromCloud } = useCloudDriveSyncActions(setSyncTaskState, setConflicts);
   const { filteredFolders, selectedFolder, selectedFiles } = useCloudDrivePageData(selectedFolderId, searchKeyword);
+  const compare = useDriveSyncCompare(token);
+  const archive = useDriveArchive();
 
   useEffect(() => {
     if (filteredFolders.length === 0) {
@@ -125,38 +120,22 @@ export function CloudDrivePage() {
     [message, token],
   );
 
-  const handlePush = useCallback(async () => {
-    try {
-      const result = await pushToCloud(token);
-      message.success(`上行完成：目录 ${result.foldersSynced}，文件 ${result.filesSynced}`);
-      setSyncPanelOpen(true);
-    } catch (e) {
-      message.error((e as Error).message);
-    }
-  }, [message, pushToCloud, token]);
+  const openCompare = compare.openCompare;
+  const handlePull = useCallback(() => {
+    void openCompare(SyncDirection.PULL);
+  }, [openCompare]);
+  const handlePush = useCallback(() => {
+    void openCompare(SyncDirection.PUSH);
+  }, [openCompare]);
 
-  const handlePull = useCallback(async () => {
-    try {
-      const result = await pullFromCloud(token);
-      message.success(`下行完成：新增目录 ${result.createdFolders}，自动处理冲突 ${result.pulledConflicts}`);
-      if (result.downgradedFolders > 0 || result.downgradedFiles > 0) {
-        message.warning(
-          `检测到云端缺失，已将 ${result.downgradedFolders} 个目录、${result.downgradedFiles} 个文件转为仅本地`,
-        );
-      }
-      setSyncPanelOpen(true);
-    } catch (e) {
-      message.error((e as Error).message);
-    }
-  }, [message, pullFromCloud, token]);
-
-  const syncing = syncTaskState.running;
-  const runningType = syncTaskState.type;
+  const handleApply = useCallback(async () => {
+    const result = await compare.applyCurrent();
+    if (result.ok) message.success(result.message);
+    else message.error(result.message);
+  }, [compare, message]);
 
   const detailFiles = useMemo(() => selectedFiles, [selectedFiles]);
-
-  const handleCloseSyncPanel = useCallback(() => setSyncPanelOpen(false), []);
-  const handleOpenSyncPanel = useCallback(() => setSyncPanelOpen(true), []);
+  const syncing = compare.state.loading || compare.state.applying;
 
   return (
     <>
@@ -171,8 +150,10 @@ export function CloudDrivePage() {
               onSelectFolder={setSelectedFolderId}
               onCreateFolder={handleCreateFolder}
               onDeleteFolder={handleDeleteFolder}
-              onPullFromCloud={() => void handlePull()}
-              onPushToCloud={() => void handlePush()}
+              onPullFromCloud={handlePull}
+              onPushToCloud={handlePush}
+              onExportArchive={archive.exportArchive}
+              onImportArchive={archive.openImportPicker}
             />
           </div>
         </Splitter.Panel>
@@ -182,8 +163,8 @@ export function CloudDrivePage() {
               folder={selectedFolder}
               files={detailFiles}
               syncing={syncing}
-              onPull={() => void handlePull()}
-              onPush={() => void handlePush()}
+              onPull={handlePull}
+              onPush={handlePush}
               onAddFile={() => void handleAddFile()}
               onDownloadFile={handleDownloadFile}
               onRenameFile={renameFile}
@@ -193,17 +174,28 @@ export function CloudDrivePage() {
         </Splitter.Panel>
       </Splitter>
       <input ref={fileInputRef} type="file" multiple hidden onChange={handleFilePicked} />
+      <input {...archive.importInputProps} />
       <FloatButton
         type="primary"
-        description="同步"
-        tooltip="打开同步面板"
-        onClick={handleOpenSyncPanel}
+        icon={<CloudSyncOutlined />}
+        description="对比"
+        tooltip="打开同步对比"
+        onClick={handlePush}
       />
-      <SyncPanel
-        open={syncPanelOpen}
-        onClose={handleCloseSyncPanel}
-        runningType={runningType}
-        conflicts={conflicts}
+      <SyncCompareDrawer
+        open={compare.state.open}
+        direction={compare.state.direction}
+        loading={compare.state.loading}
+        applying={compare.state.applying}
+        error={compare.state.error}
+        diff={compare.state.diff}
+        selectedKey={compare.state.selectedKey}
+        onClose={compare.closeCompare}
+        onChangeDirection={compare.setDirection}
+        onSelectEntry={compare.selectEntry}
+        onApply={handleApply}
+        onRefresh={compare.refresh}
+        loadEntryContent={compare.loadEntryContent}
       />
     </>
   );

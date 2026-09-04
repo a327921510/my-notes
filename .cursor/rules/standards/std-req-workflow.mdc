@@ -1,0 +1,15 @@
+---
+description: REQ 文档驱动工作流摘要（路径见 req-workflow.local.mdc）
+alwaysApply: true
+---
+
+# REQ 工作流规范（摘要）
+
+- **先留痕再写码**：口头需求当天在文档根 `backlog/REQ-index.md` 建 `REQ-YYYYMMDD-xx` 行；未入库不改业务代码。
+- **确认后再归档**：实现阶段不大改 changelog / 功能真相 / ops；用户说「已确认，同步文档」再做阶段 B。
+- **Commit footer** 带同一 `REQ-ID`；多仓各自 commit 都带该 ID。
+- **路径以本地配置为准**：`.cursor/rules/req-workflow.local.mdc`（`cursor-std configure-req` 生成）。缺失时停止并提示配置，禁止猜路径。
+- **阶段 skill**：登记 → `req-register`；实现 → `implement-req`；主路径定稿后 E2E → `add-e2e-test`；归档 → `sync-req-docs`；总览 → `req-workflow`（`WORKFLOW.md`）。
+- **实现主路径**：用户可见能力须有编排入口 + 流程地图（stage 1→N）；细则见 `std-readability` / `std-comments`，简报见 `implement-req`。
+- **自动化**：主路径定稿后再补页面 E2E（与 stage / testid 对齐）；小程序自动化仅占位。人工详测文档仍走归档后可选步骤，≠ E2E。
+- 范围外问题另开 REQ；中途改交互先改 REQ 再改码。

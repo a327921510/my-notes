@@ -1,0 +1,37 @@
+---
+description: TypeScript / 前端代码规范（在处理 ts/tsx/js/jsx/vue 文件时自动附加）
+globs: **/*.{ts,tsx,js,jsx,vue}
+alwaysApply: false
+---
+
+# TypeScript / 前端规范
+
+- 优先使用 TypeScript；避免 `any`，用明确类型或泛型。
+- 使用 `const`/`let`，禁用 `var`；模块使用 ESM `import`/`export`。
+- 组件保持单一职责，副作用集中管理。
+- 异步使用 `async/await` 并处理错误分支。
+- 遵循项目现有的 lint / formatter 配置，不引入风格冲突。
+
+## 数据转换命名（`map*` / `format*` / `parse*`）
+
+**跨文件 export 的数据转换函数**仅用这三个前缀；文件内 private helper 不限。注释要求见 `std-comments`（有条件写 `例：入参 → 出参`）。
+
+| 前缀 | 用途 | 典型出参 |
+|------|------|----------|
+| **`map*`** | 结构 / 模型 / URL·path·query / payload / 列表合并·去重 / 二进制形态互转 | 对象、数组、路径、FormData、Blob 等 |
+| **`format*`** | 标量 → **展示用**字符串 | `string`（金额、状态、时间、下载文件名等） |
+| **`parse*`** | 串 / query / JSON 等半结构化输入 → 结构或标量 | 对象、枚举、`number` 等 |
+
+**`map*` 常见子场景**（命名仍用 `map*`，注释可点一句）：DTO 互转（`mapXxxToYyy`）、URL/path/query、拼装 payload、列表合并、File→Base64 / Canvas→Blob。
+
+**不再新增 export 前缀**：`resolve*` / `adapt*` / `build*` / `to*` / `normalize*` / `read*`（作转换时）等归并到上表三者；旧名可保留，新代码不增。
+
+**不属于数据转换**（勿用上述三前缀硬套）：谓词 `is*` / `has*` / `can*`；取数 / IO 的 `fetch*` / `load*` / 读 DOM·配置·运行时的 `get*` / `read*`。
+
+## 测试（与 REQ / 流程地图对齐）
+
+- **单元 / 组件测**：稳定纯逻辑（工具函数、可测 hook、无 UI 副作用的规则）新增或实质变更时，配套项目既有单测框架（如 Vitest / Jest）；无框架时在实现简报中注明，勿擅自引入重依赖。
+- **E2E（页面主路径）**：主路径**定稿后**再补；关键交互控件使用与流程地图 **stage 同名**的定位属性，约定格式 `data-testid="{feature}.{stage}"`（或项目 `local.mdc` 另有约定）。优先可访问性定位（role / 可见名称）；文案或结构不稳时再用 testid。
+- **增量打标**：只给本 REQ / 本条用例会点到的控件加 testid，禁止全站扫一遍。
+- **工具不绑死**：沿用仓库已有 E2E 栈；没有则由 `add-e2e-test` skill 生成最小骨架（常见为 Playwright），细则见该 skill。
+- **小程序自动化**：中央规范仅占位（目录与 stage 共用约定）；驱动实现由项目后续接入，见 `add-e2e-test`「小程序 E2E（占位）」。

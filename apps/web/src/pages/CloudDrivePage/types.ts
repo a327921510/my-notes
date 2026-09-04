@@ -27,14 +27,3 @@ export type DriveFile = {
   syncStatus: SyncStatus;
   cloudId?: string;
 };
-
-export type ConflictRecord = {
-  id: string;
-  entityType: "folder" | "file";
-  entityId: string;
-  field: string;
-  localValue: string;
-  cloudValue: string;
-  resolvedBy: "lww";
-  resolvedAt: number;
-};

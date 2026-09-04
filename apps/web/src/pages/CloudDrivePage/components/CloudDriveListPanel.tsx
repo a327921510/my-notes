@@ -4,9 +4,11 @@ import {
   DeleteOutlined,
   FolderAddOutlined,
   FolderOpenOutlined,
+  ImportOutlined,
+  InboxOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { Button, Input, List, Modal, Popconfirm, Space, Typography } from "antd";
+import { Button, Input, List, Modal, Popconfirm, Space, Tooltip, Typography } from "antd";
 import { useMemo, useState } from "react";
 import { SyncBadge } from "@/components/SyncBadge";
 import type { DriveFolder } from "../types";
@@ -21,6 +23,8 @@ type CloudDriveListPanelProps = {
   onDeleteFolder: (folderId: string) => Promise<void>;
   onPullFromCloud: () => Promise<void> | void;
   onPushToCloud: () => Promise<void> | void;
+  onExportArchive: () => Promise<void> | void;
+  onImportArchive: () => void;
 };
 
 export function CloudDriveListPanel({
@@ -33,6 +37,8 @@ export function CloudDriveListPanel({
   onDeleteFolder,
   onPullFromCloud,
   onPushToCloud,
+  onExportArchive,
+  onImportArchive,
 }: CloudDriveListPanelProps) {
   const [searchInput, setSearchInput] = useState(searchKeyword);
   const [createOpen, setCreateOpen] = useState(false);
@@ -60,9 +66,21 @@ export function CloudDriveListPanel({
           </Typography.Title>
         </Space>
         <Space size={4}>
-          <Button type="text" icon={<CloudDownloadOutlined />} onClick={() => void onPullFromCloud()} />
-          <Button type="text" icon={<CloudUploadOutlined />} onClick={() => void onPushToCloud()} />
-          <Button type="text" icon={<FolderAddOutlined />} onClick={() => setCreateOpen(true)} />
+          <Tooltip title="下行对比（远端→本地）">
+            <Button type="text" icon={<CloudDownloadOutlined />} onClick={() => void onPullFromCloud()} />
+          </Tooltip>
+          <Tooltip title="上行对比（本地→远端）">
+            <Button type="text" icon={<CloudUploadOutlined />} onClick={() => void onPushToCloud()} />
+          </Tooltip>
+          <Tooltip title="导入目录压缩包（ZIP）到本地">
+            <Button type="text" icon={<ImportOutlined />} onClick={onImportArchive} />
+          </Tooltip>
+          <Tooltip title="导出为目录压缩包（ZIP）">
+            <Button type="text" icon={<InboxOutlined />} onClick={() => void onExportArchive()} />
+          </Tooltip>
+          <Tooltip title="新增目录">
+            <Button type="text" icon={<FolderAddOutlined />} onClick={() => setCreateOpen(true)} />
+          </Tooltip>
         </Space>
       </div>
 
