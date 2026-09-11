@@ -11,6 +11,8 @@ import { Alert, Button, Empty, Space, Table, Tooltip, Typography } from "antd";
 import type { ColumnsType, TableProps } from "antd/es/table";
 import { useCallback, useMemo, useState } from "react";
 
+import { isNodeDrag, readDraggedNodeIds, writeDraggedNodeIds } from "@/lib/dragNodes";
+
 import { NodeNameCell } from "./NodeNameCell";
 
 export type DriveListRow = DriveNode & { path?: NodeBrief[] };
@@ -36,6 +38,7 @@ export type DriveListPanelProps = {
   onDelete: (node: DriveNode) => void;
   onRetry: () => void;
   onDropFiles: (files: File[]) => void;
+  onDropNodes: (nodeIds: string[], targetFolderId: string) => void;
 };
 
 function formatTime(value: number): string {
@@ -72,18 +75,43 @@ export function DriveListPanel({
   onDelete,
   onRetry,
   onDropFiles,
+  onDropNodes,
 }: DriveListPanelProps) {
   /** Shift 连选的锚点 */
   const [anchorId, setAnchorId] = useState<string | null>(null);
 
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+
   const handleDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
+      // 内部拖拽由行级 drop 处理，这里只接「从桌面拖进来的文件」
+      if (isNodeDrag(event.dataTransfer)) return;
       event.preventDefault();
       if (isSearchMode) return;
       const files = Array.from(event.dataTransfer.files ?? []);
       if (files.length > 0) onDropFiles(files);
     },
     [isSearchMode, onDropFiles],
+  );
+
+  const handleRowDragStart = useCallback(
+    (record: DriveListRow, event: React.DragEvent<HTMLElement>) => {
+      const ids = selectedIds.includes(record.id) ? selectedIds : [record.id];
+      writeDraggedNodeIds(event.dataTransfer, ids);
+    },
+    [selectedIds],
+  );
+
+  const handleRowDrop = useCallback(
+    (record: DriveListRow, event: React.DragEvent<HTMLElement>) => {
+      setDropTargetId(null);
+      if (record.kind !== NodeKind.FOLDER || !isNodeDrag(event.dataTransfer)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const ids = readDraggedNodeIds(event.dataTransfer).filter((id) => id !== record.id);
+      if (ids.length > 0) onDropNodes(ids, record.id);
+    },
+    [onDropNodes],
   );
 
   const columns = useMemo<ColumnsType<DriveListRow>>(() => {
@@ -287,7 +315,17 @@ export function DriveListPanel({
           ),
         }}
         onChange={handleTableChange}
+        rowClassName={(record) => (dropTargetId === record.id ? "bg-[#e6f4ff]" : "")}
         onRow={(record) => ({
+          draggable: !isSearchMode,
+          onDragStart: (event: React.DragEvent<HTMLElement>) => handleRowDragStart(record, event),
+          onDragOver: (event: React.DragEvent<HTMLElement>) => {
+            if (record.kind !== NodeKind.FOLDER || !isNodeDrag(event.dataTransfer)) return;
+            event.preventDefault();
+            setDropTargetId(record.id);
+          },
+          onDragLeave: () => setDropTargetId((prev) => (prev === record.id ? null : prev)),
+          onDrop: (event: React.DragEvent<HTMLElement>) => handleRowDrop(record, event),
           onClick: (event) => handleRowClick(record, event),
           onDoubleClick: () => onOpen(record),
         })}

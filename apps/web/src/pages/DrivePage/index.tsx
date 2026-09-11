@@ -55,7 +55,7 @@ export function DrivePage() {
   const list = useDriveList({ folderId, sort, order });
   const search = useDriveSearch(keyword);
   const tree = useDriveTree();
-  const { refresh: refreshUsage } = useDriveUsage();
+  const { usage, refresh: refreshUsage } = useDriveUsage();
 
   const refreshAll = useCallback(async () => {
     await Promise.all([list.reload(), tree.reload(), refreshUsage()]);
@@ -66,6 +66,7 @@ export function DrivePage() {
   const transfer = useDriveTransfer(refreshAll);
 
   const currentFolderId = list.parent?.id ?? null;
+  const quotaExhausted = usage !== null && usage.usedBytes >= usage.quotaBytes;
   const rows: DriveListRow[] = isSearchMode ? search.items : list.nodes;
   const nodeById = useMemo(() => new Map(rows.map((row) => [row.id, row as DriveNode])), [rows]);
   const selectedNodes = useMemo(
@@ -189,6 +190,14 @@ export function DrivePage() {
     [movingNodes, mutations],
   );
 
+  const handleDropNodes = useCallback(
+    async (nodeIds: string[], targetFolderId: string) => {
+      const ok = await mutations.move(nodeIds, targetFolderId);
+      if (ok) setSelectedIds([]);
+    },
+    [mutations],
+  );
+
   const handleExportCurrent = useCallback(async () => {
     if (!currentFolderId) return;
     await transfer.exportNodes({ folderId: currentFolderId });
@@ -240,6 +249,7 @@ export function DrivePage() {
               onExpandedKeysChange={tree.setExpandedKeys}
               onSelect={(id, isRoot) => navigateToFolder(isRoot ? null : id)}
               onLoadChildren={tree.loadChildren}
+              onDropNodes={handleDropNodes}
             />
           </div>
         </Splitter.Panel>
@@ -255,6 +265,7 @@ export function DrivePage() {
                 path={list.path}
                 selectedCount={selectedIds.length}
                 disabled={!currentFolderId || transfer.busy || mutations.pending}
+                quotaExhausted={quotaExhausted}
                 onNavigate={navigateToFolder}
                 onCreateFolder={handleCreateFolder}
                 onCreateDoc={handleCreateDoc}
@@ -289,6 +300,7 @@ export function DrivePage() {
                 onDelete={(node) => void mutations.remove([node])}
                 onRetry={() => void (isSearchMode ? search.reload() : list.reload())}
                 onDropFiles={handleDropFiles}
+                onDropNodes={handleDropNodes}
               />
             </div>
           </div>

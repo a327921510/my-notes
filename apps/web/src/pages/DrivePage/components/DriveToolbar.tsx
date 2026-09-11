@@ -16,6 +16,8 @@ export type DriveToolbarProps = {
   path: NodeBrief[];
   selectedCount: number;
   disabled: boolean;
+  /** 超配额时禁用写入类入口 */
+  quotaExhausted: boolean;
   onNavigate: (folderId: string | null) => void;
   onCreateFolder: () => void;
   onCreateDoc: () => void;
@@ -32,6 +34,7 @@ export const DriveToolbar = memo(function DriveToolbar({
   path,
   selectedCount,
   disabled,
+  quotaExhausted,
   onNavigate,
   onCreateFolder,
   onCreateDoc,
@@ -85,7 +88,8 @@ export const DriveToolbar = memo(function DriveToolbar({
 
         <Button
           data-testid="drive.pickFiles"
-          disabled={disabled}
+          disabled={disabled || quotaExhausted}
+          title={quotaExhausted ? "存储空间不足" : undefined}
           icon={<CloudUploadOutlined />}
           type="primary"
           onClick={onUpload}
@@ -96,7 +100,8 @@ export const DriveToolbar = memo(function DriveToolbar({
         <Space.Compact>
           <Button
             data-testid="drive.pickArchive"
-            disabled={disabled}
+            disabled={disabled || quotaExhausted}
+            title={quotaExhausted ? "存储空间不足" : undefined}
             icon={<ImportOutlined />}
             onClick={onImport}
           >
