@@ -45,6 +45,23 @@ async function call(token, method, path, body, isForm = false) {
   return { status: response.status, data, headers: response.headers };
 }
 
+/** 依赖包重建会让 tsx watch 重启服务，这里先等服务就绪再开跑。 */
+async function waitForApi(timeoutMs = 20_000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      const response = await fetch(`${BASE}/api/health`);
+      if (response.ok) return;
+    } catch {
+      // 服务还没起来，继续重试
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`API 在 ${timeoutMs}ms 内未就绪，请先运行 pnpm dev:api`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
 function uploadForm(parentId, name, content, onConflict) {
   const form = new FormData();
   form.set("parentId", parentId);
@@ -54,6 +71,8 @@ function uploadForm(parentId, name, content, onConflict) {
 }
 
 async function main() {
+  await waitForApi();
+
   const stamp = Date.now();
   const userA = { email: `a_${stamp}@example.com`, password: "password123" };
   const userB = { email: `b_${stamp}@example.com`, password: "password123" };
