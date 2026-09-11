@@ -1,10 +1,4 @@
-import {
-  ApiErrorCode,
-  type DocContent,
-  NodeKind,
-  isMmdName,
-  mapNameToMmdName,
-} from "@my-notes/shared";
+import { ApiErrorCode, type DocContent, NodeKind, mapNameToMmdName } from "@my-notes/shared";
 import type { FastifyInstance } from "fastify";
 
 import { ApiError } from "../errors.js";
@@ -98,9 +92,4 @@ export async function registerDocRoutes(
       return { node: mapNodeToDto(drive.requireNode(userId, node.id)) };
     },
   );
-
-  app.get<{ Params: { id: string } }>("/api/docs/:id/can-open", async (request) => {
-    const node = drive.requireNode(request.userId, request.params.id);
-    return { canOpen: node.kind === NodeKind.FILE && isMmdName(node.name) };
-  });
 }
