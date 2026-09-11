@@ -1,121 +1,125 @@
-import {
-  AppstoreOutlined,
-  FileTextOutlined,
-  SnippetsOutlined,
-  FolderOpenOutlined,
-  GlobalOutlined,
-  UserOutlined,
-} from "@ant-design/icons";
+import { CloudOutlined, DownOutlined, LogoutOutlined, UserOutlined } from "@ant-design/icons";
+import { formatBytes } from "@my-notes/shared";
+import { App, Button, Dropdown, Input, Layout, Progress, Tooltip } from "antd";
 import type { MenuProps } from "antd";
-import { Avatar, Dropdown, Layout, Menu, Space, Typography } from "antd";
-import { Suspense, useMemo } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Outlet, useNavigate, useSearchParams } from "react-router-dom";
 
-import { GlobalEntrySearch } from "@/components/GlobalEntrySearch";
+import { useDriveUsage } from "@/hooks/useDriveUsage";
 import { useAuthStore } from "@/stores/useAuthStore";
-
-const { Header, Content } = Layout;
-
-const NAV_ITEMS = [
-  { key: "/", label: "笔记区", icon: <FileTextOutlined /> },
-  { key: "/sites", label: "站点信息区", icon: <GlobalOutlined /> },
-  { key: "/project-markdown", label: "项目文档", icon: <SnippetsOutlined /> },
-  { key: "/projects", label: "项目信息区", icon: <AppstoreOutlined /> },
-  { key: "/cloud-drive", label: "云盘", icon: <FolderOpenOutlined /> },
-] as const;
-
-/** 左侧品牌 / Logo 占位最小宽度（Tailwind `min-w-52` ≈ 13rem） */
-const LOGO_AREA_CLASS = "min-w-52";
-
-function pathToMenuKey(pathname: string): string | null {
-  const normalized =
-    pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
-  if (normalized === "/user") return null;
-  const match = NAV_ITEMS.find(
-    (item) => item.key !== "/" && pathname.startsWith(item.key),
-  );
-  return match?.key ?? "/";
-}
+import { useUsageStore } from "@/stores/useUsageStore";
 
 export function MainLayout() {
+  const { modal } = App.useApp();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
-  const selectedKey = pathToMenuKey(pathname);
+  const clearUsage = useUsageStore((s) => s.clear);
+  const { usage } = useDriveUsage(true);
 
-  const loggedInMenuItems = useMemo<MenuProps["items"]>(
-    () => [
-      {
-        key: "profile",
-        label: "用户信息",
-        onClick: () => navigate("/user"),
-      },
-      { type: "divider" },
-      {
-        key: "logout",
-        label: "登出",
-        danger: true,
-        onClick: () => logout(),
-      },
-    ],
-    [logout, navigate],
+  const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "");
+
+  // 从搜索结果跳走或清空 URL 参数时，输入框要跟着回到实际状态
+  useEffect(() => {
+    setKeyword(searchParams.get("keyword") ?? "");
+  }, [searchParams]);
+
+  const handleSearch = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      navigate(trimmed === "" ? "/drive" : `/drive?keyword=${encodeURIComponent(trimmed)}`);
+    },
+    [navigate],
   );
 
-  const mainNavItems = useMemo<MenuProps["items"]>(
-    () =>
-      NAV_ITEMS.map((item) => ({
-        key: item.key,
-        icon: item.icon,
-        label: item.label,
-      })),
+  const handleLogout = useCallback(() => {
+    modal.confirm({
+      title: "确认退出登录？",
+      content: "退出后将清除本机保存的会话与缓存。",
+      okText: "退出",
+      cancelText: "取消",
+      onOk: () => {
+        clearUsage();
+        logout();
+        navigate("/login", { replace: true });
+      },
+    });
+  }, [clearUsage, logout, modal, navigate]);
+
+  const menuItems = useMemo<MenuProps["items"]>(
+    () => [
+      { key: "account", icon: <UserOutlined />, label: "账号信息" },
+      { type: "divider" },
+      { key: "logout", icon: <LogoutOutlined />, label: "退出登录", danger: true },
+    ],
     [],
   );
 
+  const handleMenuClick = useCallback<NonNullable<MenuProps["onClick"]>>(
+    ({ key }) => {
+      if (key === "account") navigate("/account");
+      if (key === "logout") handleLogout();
+    },
+    [handleLogout, navigate],
+  );
+
+  const usagePercent = usage && usage.quotaBytes > 0
+    ? Math.min(100, Math.round((usage.usedBytes / usage.quotaBytes) * 100))
+    : 0;
+
   return (
-    <Layout className="h-[100vh] bg-[#f5f5f5]">
-      <div className="sticky top-0 z-10 flex h-auto min-h-14 flex-wrap items-stretch gap-0 border-b border-[#f0f0f0] bg-white px-2">
-        <div
-          className={`flex shrink-0 items-center ${LOGO_AREA_CLASS}`}
+    <Layout className="h-screen">
+      <Layout.Header className="flex items-center gap-4 !bg-white px-4 shadow-sm">
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-2 border-0 bg-transparent p-0"
+          onClick={() => navigate("/drive")}
         >
-          <Typography.Title level={4} className="!mb-0 truncate">
-            My Notes
-          </Typography.Title>
-        </div>
-        <Menu
-          mode="horizontal"
-          selectedKeys={selectedKey !== null ? [selectedKey] : []}
-          items={mainNavItems}
-          className="min-h-14 min-w-0 flex-1 border-b-0 bg-transparent px-2 [&_.ant-menu-item]:flex [&_.ant-menu-item]:items-center"
-          onClick={({ key }) => {
-            navigate(key);
-          }}
+          <CloudOutlined className="text-xl text-[#1677ff]" />
+          <span className="text-base font-semibold text-[#262626]">My Drive</span>
+        </button>
+
+        <Input.Search
+          allowClear
+          className="max-w-[420px]"
+          data-testid="drive.searchNodes"
+          placeholder="搜索文件夹和文件名称"
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+          onSearch={handleSearch}
         />
-        <div className="flex min-w-0 shrink-0 items-center gap-2 py-1">
-          <GlobalEntrySearch />
-          <Dropdown
-            menu={{ items: loggedInMenuItems }}
-            trigger={["hover"]}
-            placement="bottomRight"
-          >
-          <Space className="cursor-pointer select-none py-1 h-full" size={8}>
-            <Avatar icon={<UserOutlined />} />
-            {user ? (
-              <Typography.Text className="max-w-[200px] truncate" type="secondary">
-                {user.email}
-              </Typography.Text>
-            ) : (
-              <Typography.Text type="secondary">游客</Typography.Text>
-            )}
-          </Space>
-        </Dropdown>
+
+        <div className="ml-auto flex items-center gap-4">
+          {usage ? (
+            <Tooltip
+              title={`已用 ${formatBytes(usage.usedBytes)} / 共 ${formatBytes(usage.quotaBytes)}`}
+            >
+              <div className="hidden w-[160px] md:block">
+                <Progress
+                  percent={usagePercent}
+                  size="small"
+                  status={usagePercent >= 100 ? "exception" : "normal"}
+                  format={() => `${formatBytes(usage.usedBytes)}`}
+                />
+              </div>
+            </Tooltip>
+          ) : null}
+
+          <Dropdown menu={{ items: menuItems, onClick: handleMenuClick }} trigger={["click"]}>
+            <Button type="text">
+              <UserOutlined />
+              <span className="max-w-[180px] truncate">{user?.email ?? "未登录"}</span>
+              <DownOutlined />
+            </Button>
+          </Dropdown>
         </div>
-      </div>
-      <Content>
-        <Suspense>
-          <Outlet />
-        </Suspense>
-      </Content>
+      </Layout.Header>
+
+      <Layout.Content className="min-h-0 overflow-hidden bg-[#f5f6f8] p-3">
+        <Outlet />
+      </Layout.Content>
     </Layout>
   );
 }

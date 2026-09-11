@@ -4,10 +4,7 @@ import { Navigate, RouterProvider, createBrowserRouter } from "react-router-dom"
 
 import { routes } from "./routes";
 
-const router = createBrowserRouter([
-  ...routes,
-  { path: "*", element: <Navigate to="/" replace /> },
-]);
+const router = createBrowserRouter([...routes, { path: "*", element: <Navigate to="/" replace /> }]);
 
 const fallback = (
   <div className="flex h-screen items-center justify-center">
