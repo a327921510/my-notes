@@ -64,7 +64,7 @@ export const ImportModal = memo(function ImportModal({
             <Alert
               type="warning"
               showIcon
-              message="部分条目未能导入"
+              title="部分条目未能导入"
               description={
                 <ul className="m-0 pl-4">
                   {result.failed.slice(0, 5).map((item) => (
@@ -89,7 +89,7 @@ export const ImportModal = memo(function ImportModal({
           </Descriptions>
 
           {quotaBlocked ? (
-            <Alert className="mb-3" type="error" showIcon message="存储空间不足，无法导入" />
+            <Alert className="mb-3" type="error" showIcon title="存储空间不足，无法导入" />
           ) : null}
 
           {preflight && preflight.conflicts.length > 0 ? (
@@ -97,7 +97,7 @@ export const ImportModal = memo(function ImportModal({
               className="mb-3"
               type="warning"
               showIcon
-              message={`目标目录已存在：${preflight.conflicts.slice(0, 5).join("、")}`}
+              title={`目标目录已存在：${preflight.conflicts.slice(0, 5).join("、")}`}
             />
           ) : null}
 

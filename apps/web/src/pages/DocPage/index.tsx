@@ -183,7 +183,7 @@ export function DocPage() {
         className="m-3"
         type="error"
         showIcon
-        message="无法打开该文档"
+        title="无法打开该文档"
         description={document.error}
       />
     );

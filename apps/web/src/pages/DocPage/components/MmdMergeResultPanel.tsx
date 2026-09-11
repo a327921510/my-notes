@@ -21,7 +21,7 @@ export const MmdMergeResultPanel = memo(function MmdMergeResultPanel({
           可直接编辑；再改动勾选会以勾选结果为准
         </Typography.Text>
       </div>
-      {isManuallyEdited ? <Alert type="info" showIcon message="结果已手工改写" /> : null}
+      {isManuallyEdited ? <Alert type="info" showIcon title="结果已手工改写" /> : null}
       <Input.TextArea
         className="min-h-0 flex-1 font-mono"
         value={text}

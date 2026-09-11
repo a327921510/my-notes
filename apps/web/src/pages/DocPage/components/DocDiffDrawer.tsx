@@ -146,12 +146,12 @@ export function DocDiffDrawer({
       ) : !diff ? (
         <Empty description="暂无对比结果" />
       ) : identical ? (
-        <Alert type="success" showIcon message="两侧内容一致，无差异" />
+        <Alert type="success" showIcon title="两侧内容一致，无差异" />
       ) : truncated ? (
         <Alert
           type="warning"
           showIcon
-          message="文档过大，已跳过逐行对比"
+          title="文档过大，已跳过逐行对比"
           description="两侧内容不一致，请直接选择「用本机版本覆盖」或「采用服务端版本」。"
         />
       ) : (
@@ -213,7 +213,7 @@ export function DocDiffDrawer({
                 <Alert
                   type="warning"
                   showIcon
-                  message={`还有 ${pendingCount} 处变更块待处理，处理完才能保存合并结果`}
+                  title={`还有 ${pendingCount} 处变更块待处理，处理完才能保存合并结果`}
                 />
               ) : null}
               <Splitter className="min-h-0 flex-1">
