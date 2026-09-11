@@ -1,25 +1,22 @@
 {
   "name": "@my-notes/web",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc -p tsconfig.app.json --noEmit"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
-    "@my-notes/local-db": "workspace:*",
     "@my-notes/shared": "workspace:*",
-    "@my-notes/sync-client": "workspace:*",
     "@uiw/react-md-editor": "^4.1.0",
     "antd": "^6.3.5",
     "axios": "^1.15.0",
-    "dexie": "^4.0.10",
-    "dexie-react-hooks": "^1.1.7",
+    "clsx": "^2.1.1",
     "fflate": "^0.8.3",
-    "quill": "^2.0.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
