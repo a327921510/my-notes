@@ -3,6 +3,8 @@
  * 用法：先 `pnpm --filter @my-notes/api dev`，再 `node apps/api/scripts/smoke.mjs`
  */
 
+import { zipSync } from "fflate";
+
 const BASE = process.env.API_BASE ?? "http://127.0.0.1:3001";
 
 let passed = 0;
@@ -278,6 +280,57 @@ async function main() {
   const bRoot = await call(tokenB, "GET", "/api/drive/nodes");
   const bNames = bRoot.data.nodes.map((n) => n.name).sort();
   check("B 账号根目录结构与 A 一致", bNames.join(",") === "工作,归档", bNames);
+
+  const emptyFolder = await call(tokenA, "POST", "/api/drive/folders", { parentId: rootId, name: "空目录" });
+  const selectedExport = await call(tokenA, "POST", "/api/drive/export", {
+    ids: [emptyFolder.data.node.id, archiveId],
+  });
+  const selectedZip = Buffer.from(selectedExport.data);
+  check(
+    "多选导出以所选条目本身为顶层",
+    selectedZip.includes(Buffer.from("空目录/")) && selectedZip.includes(Buffer.from("归档/")),
+    selectedZip.length,
+  );
+
+  const roundTripForm = new FormData();
+  roundTripForm.set("targetParentId", "");
+  roundTripForm.set("archive", new Blob([selectedZip]), "selected.zip");
+  const roundTrip = await call(tokenB, "POST", "/api/drive/import", roundTripForm, true);
+  // B 此前已导入过「归档」，这里应复用已有目录而不是报冲突
+  check(
+    "导入时同名目录被复用而非报错",
+    roundTrip.data.failed.length === 0 && roundTrip.data.createdFolders >= 1,
+    roundTrip.data,
+  );
+  const bAfter = await call(tokenB, "GET", "/api/drive/nodes");
+  check(
+    "空目录还原到 B 根目录",
+    bAfter.data.nodes.some((n) => n.name === "空目录" && n.kind === "folder"),
+    bAfter.data.nodes.map((n) => n.name),
+  );
+
+  // 外部产生的普通目录 ZIP（无清单）也要能导入
+  const plainZip = zipSync({
+    "外部目录/a.txt": new Uint8Array(Buffer.from("plain a")),
+    "根散落.md": new Uint8Array(Buffer.from("# hi")),
+  });
+  const plainForm = new FormData();
+  plainForm.set("targetParentId", "");
+  plainForm.set("archive", new Blob([Buffer.from(plainZip)]), "plain.zip");
+  const plainImport = await call(tokenB, "POST", "/api/drive/import", plainForm, true);
+  check(
+    "外部普通 ZIP 可导入且根部散落文件归入目标目录",
+    plainImport.data.createdFolders === 1 &&
+      plainImport.data.createdFiles === 2 &&
+      plainImport.data.failed.length === 0,
+    plainImport.data,
+  );
+
+  const badForm = new FormData();
+  badForm.set("targetParentId", "");
+  badForm.set("archive", new Blob([Buffer.from("not a zip at all")]), "broken.zip");
+  const badImport = await call(tokenB, "POST", "/api/drive/import", badForm, true);
+  check("非法导入包返回 ARCHIVE_INVALID", badImport.data.code === "ARCHIVE_INVALID", badImport.data);
 
   section("账号隔离");
   const crossRead = await call(tokenB, "GET", `/api/drive/nodes/${workId}`);
