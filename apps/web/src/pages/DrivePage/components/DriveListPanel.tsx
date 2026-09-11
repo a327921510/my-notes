@@ -9,7 +9,7 @@ import {
 } from "@my-notes/shared";
 import { Alert, Button, Empty, Space, Table, Tooltip, Typography } from "antd";
 import type { ColumnsType, TableProps } from "antd/es/table";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { NodeNameCell } from "./NodeNameCell";
 
@@ -73,6 +73,9 @@ export function DriveListPanel({
   onRetry,
   onDropFiles,
 }: DriveListPanelProps) {
+  /** Shift 连选的锚点 */
+  const [anchorId, setAnchorId] = useState<string | null>(null);
+
   const handleDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
@@ -195,10 +198,38 @@ export function DriveListPanel({
     () => ({
       selectedRowKeys: selectedIds,
       onChange: (keys) => onSelectedIdsChange(keys.map(String)),
-      /** Shift 连选由 antd 的 checkbox 区间选择提供 */
-      checkStrictly: true,
     }),
     [onSelectedIdsChange, selectedIds],
+  );
+
+  /** 普通点击单选，Ctrl/Cmd 点击增删，Shift 从锚点连选；点复选框列时交给 antd。 */
+  const handleRowClick = useCallback(
+    (record: DriveListRow, event: React.MouseEvent<HTMLElement>) => {
+      if ((event.target as HTMLElement).closest(".ant-table-selection-column")) return;
+
+      if (event.shiftKey && anchorId) {
+        const from = rows.findIndex((row) => row.id === anchorId);
+        const to = rows.findIndex((row) => row.id === record.id);
+        if (from !== -1 && to !== -1) {
+          const [start, end] = from <= to ? [from, to] : [to, from];
+          onSelectedIdsChange(rows.slice(start, end + 1).map((row) => row.id));
+          return;
+        }
+      }
+
+      if (event.metaKey || event.ctrlKey) {
+        const next = selectedIds.includes(record.id)
+          ? selectedIds.filter((id) => id !== record.id)
+          : [...selectedIds, record.id];
+        onSelectedIdsChange(next);
+        setAnchorId(record.id);
+        return;
+      }
+
+      onSelectedIdsChange([record.id]);
+      setAnchorId(record.id);
+    },
+    [anchorId, onSelectedIdsChange, rows, selectedIds],
   );
 
   const handleTableChange = useCallback<NonNullable<TableProps<DriveListRow>["onChange"]>>(
@@ -257,7 +288,7 @@ export function DriveListPanel({
         }}
         onChange={handleTableChange}
         onRow={(record) => ({
-          onClick: () => onSelectedIdsChange([record.id]),
+          onClick: (event) => handleRowClick(record, event),
           onDoubleClick: () => onOpen(record),
         })}
       />

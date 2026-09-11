@@ -6,7 +6,8 @@
     "dev": "pnpm --filter @my-notes/web dev",
     "dev:api": "pnpm --filter @my-notes/api dev",
     "build": "pnpm --filter @my-notes/shared build && pnpm --filter @my-notes/api build && pnpm --filter @my-notes/web build",
-    "lint": "pnpm --filter @my-notes/web lint"
+    "lint": "pnpm --filter @my-notes/web lint",
+    "test": "pnpm --filter @my-notes/shared test"
   },
   "engines": {
     "node": ">=20"
