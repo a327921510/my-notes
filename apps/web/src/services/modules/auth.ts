@@ -1,21 +1,20 @@
-import { request } from "../request";
+import type { AuthResult, AuthUser } from "@my-notes/shared";
 
-import type { AuthUser } from "@/stores/useAuthStore";
+import { get, post } from "../request";
 
-type LoginParams = {
+export type CredentialsPayload = {
   email: string;
   password: string;
 };
 
-type LoginResult = {
-  token: string;
-  user: AuthUser;
+export type PasswordChangePayload = {
+  currentPassword: string;
+  newPassword: string;
 };
 
 export const authApi = {
-  login: (data: LoginParams) =>
-    request.post<LoginResult>("/auth/login", data),
-
-  register: (data: LoginParams) =>
-    request.post<LoginResult>("/auth/register", data),
+  register: (data: CredentialsPayload) => post<AuthResult>("/auth/register", data),
+  login: (data: CredentialsPayload) => post<AuthResult>("/auth/login", data),
+  me: () => get<{ user: AuthUser }>("/auth/me"),
+  changePassword: (data: PasswordChangePayload) => post<void>("/auth/password", data),
 };

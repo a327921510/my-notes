@@ -1,16 +1,13 @@
 {
   "name": "my-notes",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
-    "dev": "npm run dev -w @my-notes/web",
-    "dev:api": "npm run dev -w @my-notes/api",
-    "build": "npm run build -w @my-notes/shared -w @my-notes/local-db -w @my-notes/sync-client -w @my-notes/web -w @my-notes/api -w @my-notes/extension",
-    "lint": "npm run lint -w @my-notes/web --if-present"
+    "dev": "pnpm --filter @my-notes/web dev",
+    "dev:api": "pnpm --filter @my-notes/api dev",
+    "build": "pnpm --filter @my-notes/shared build && pnpm --filter @my-notes/api build && pnpm --filter @my-notes/web build",
+    "lint": "pnpm --filter @my-notes/web lint",
+    "test": "pnpm --filter @my-notes/shared test"
   },
   "engines": {
     "node": ">=20"
