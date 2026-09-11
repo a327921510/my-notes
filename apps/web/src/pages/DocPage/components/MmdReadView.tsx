@@ -5,6 +5,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { CredentialTableView } from "./CredentialTableView";
+import styles from "./MmdReadView.module.less";
 
 export type MmdReadViewProps = {
   source: string;
@@ -20,7 +21,7 @@ export const MmdReadView = memo(function MmdReadView({ source, onCopyCell }: Mmd
   }
 
   return (
-    <div className="mmd-read prose-sm max-w-none">
+    <div className={styles.readView}>
       {segments.map((segment, index) =>
         segment.type === "credentialTable" ? (
           <CredentialTableView
