@@ -73,12 +73,15 @@ export function useDriveTree() {
     void loadRoot();
   }, [loadRoot]);
 
-  /** 结构变化后重新拉取所有已展开过的层级，保持树与列表一致。 */
+  /**
+   * 结构变化后重新拉取所有已展开过的层级，保持树与列表一致。
+   * collectLoadedKeys 是先序遍历，父目录必定排在子目录之前，逐个补齐即可。
+   */
   const reload = useCallback(async () => {
-    const loadedKeys = collectLoadedKeys(treeRef.current);
+    const [rootNode] = treeRef.current;
+    const loadedKeys = collectLoadedKeys(treeRef.current).filter((key) => key !== rootNode?.key);
     await loadRoot();
     for (const key of loadedKeys) {
-      if (key === treeRef.current[0]?.key) continue;
       await loadChildren(key).catch(() => undefined);
     }
   }, [loadChildren, loadRoot]);

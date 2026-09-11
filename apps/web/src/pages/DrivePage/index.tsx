@@ -8,7 +8,7 @@ import {
   SortOrder,
 } from "@my-notes/shared";
 import { App, Card, Input, Splitter, Typography } from "antd";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useDriveUsage } from "@/hooks/useDriveUsage";
@@ -57,10 +57,14 @@ export function DrivePage() {
   const tree = useDriveTree();
   const { usage, refresh: refreshUsage } = useDriveUsage();
 
-  const refreshAll = useCallback(async () => {
+  // 各 reload 的函数标识每次渲染都会变，这里用 ref 固定 refreshAll 的标识，
+  // 否则依赖它的 mutations / transfer 动作也会每次变，下游 memo 组件全部失效
+  const refreshRef = useRef<() => Promise<void>>(async () => {});
+  refreshRef.current = async () => {
     await Promise.all([list.reload(), tree.reload(), refreshUsage()]);
     if (isSearchMode) await search.reload();
-  }, [isSearchMode, list, refreshUsage, search, tree]);
+  };
+  const refreshAll = useCallback(() => refreshRef.current(), []);
 
   const mutations = useDriveMutations(refreshAll);
   const transfer = useDriveTransfer(refreshAll);
