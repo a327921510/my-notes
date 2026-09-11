@@ -115,7 +115,7 @@ export function DocDiffDrawer({
   return (
     <Drawer
       open={open}
-      width="92vw"
+      size="92vw"
       title="与服务端对比"
       destroyOnHidden
       onClose={onClose}

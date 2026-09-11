@@ -2,6 +2,8 @@
 @text-secondary: #595959;
 @border-light: #f0f0f0;
 @border-strong: #d9d9d9;
+// 表格边框要比标题分隔线更实，否则在白底上几乎看不见
+@border-table: #d9d9d9;
 @surface-muted: #fafafa;
 @surface-code: #f6f8fa;
 @color-link: #1677ff;
@@ -126,7 +128,7 @@
   th,
   td {
     padding: 6px 12px;
-    border: 1px solid @border-light;
+    border: 1px solid @border-table;
     text-align: left;
   }
 
